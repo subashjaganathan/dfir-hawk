@@ -47,6 +47,52 @@ Status: **Done** = implemented - Partial = in progress - Planned = not started.
 
 ---
 
+## The idea (why we're building this)
+
+Most IR tooling forces a choice: powerful but heavy platforms that need servers,
+agents, and cloud, or lightweight collectors that leave you to analyze the dump
+yourself. DFIR Hawk is built on a different set of beliefs:
+
+1. **Offline-first.** It must run on an isolated, quarantined, or air-gapped
+   host with no internet and no install. Nothing phones home by default.
+2. **Explainable, not a black box.** Every verdict is scored on a transparent
+   trust ladder (known-good hash -> signer -> baseline -> rules) and tagged with
+   MITRE ATT&CK, so an analyst sees *why*, not just *what*.
+3. **AI is an assistant, never the oracle.** The model drafts and prioritizes;
+   a human signs off. AI runs deterministically and every AI-derived finding is
+   reproducible and cited back to raw evidence - so it holds up under scrutiny.
+4. **Evidence integrity end to end.** Raw artifacts are hash-sealed at capture
+   and every downstream finding traces back to `artifact + offset + SHA-256`.
+5. **Privacy without blindness.** Sensitive fields are reversibly *tokenized*
+   (not blindly scrubbed), so analysis stays useful while data stays protected.
+6. **Build it in the open, one layer at a time.** Windows triage engine first,
+   proven and tested, then each architecture layer added deliberately.
+
+The goal: a free, auditable tool a junior analyst can run in the field and a
+court will accept - collect in one command, get an explainable, ATT&CK-mapped,
+reproducible result.
+
+## How the design handles the hard problems
+
+The reference architecture is deliberately engineered around the failure modes
+that sink naive "AI + forensics" designs:
+
+| Hard problem | Design decision |
+|--------------|-----------------|
+| AI output isn't reproducible (admissibility) | Deterministic inference (temperature 0, fixed seed, pinned prompt+model per case); every finding records model+prompt+seed |
+| Scrubbing PII blinds the analysis | **Reversible tokenization** with a sealed re-identification map - keeps hostnames/IPs/accounts analytically useful without exposing them |
+| "Zero-egress" vs. IOC enrichment (VirusTotal/Shodan/MISP) | A single **policy-gated egress broker**; no automatic sample submission (OPSEC) |
+| Prompt injection *from the evidence itself* | Evidence is treated as untrusted input to the model; tool calls require authorization, with human-in-loop for state-changing tools |
+| Losing chain of custody through RAG | Every embedded chunk carries `artifact + offset + SHA-256`; per-case encrypted collections, no cross-tenant embeddings |
+| Reaching quarantined / remote hosts | Fleet reach via signed agent / WinRM / SSH / offline-USB (push or pull) |
+| The platform depending on the AI to work | Forensic tools also run as plain, deterministic CLIs - fully usable without the model |
+| Detection quality / drift | Versioned Sigma/YARA rules, false-positive management, and an evaluation harness (precision/recall vs. known cases) |
+| Overstated crypto claims | FIPS-validated crypto module (not a checkbox); honest about what is validated |
+
+See the full picture in [`Docs/architecture.svg`](Docs/architecture.svg).
+
+---
+
 ## Why it exists
 
 The predecessor (`windows-dfir-toolkit`) collected well but its analysis was

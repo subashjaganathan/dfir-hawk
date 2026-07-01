@@ -1,5 +1,5 @@
 <svg width="100%" viewBox="0 0 1000 1400" role="img" xmlns="http://www.w3.org/2000/svg">
-<title>DFIR Hawk v1.0 — Enterprise Architecture</title>
+<title>DFIR Hawk v1.1 — Enterprise Architecture</title>
 <defs>
   <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
     <path d="M1 2L9 5L1 8" fill="none" stroke="#64748b" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
@@ -72,7 +72,7 @@
 <circle cx="40" cy="19" r="4" fill="#93c5fd"/>
 <!-- title -->
 <text x="62" y="30" class="t-title">DFIR <tspan fill="#60a5fa">Hawk</tspan></text>
-<text x="62" y="48" class="t-sub">ENTERPRISE AI-ASSISTED INCIDENT RESPONSE  ·  v1.0  ·  69 CONTROLS  ·  MITRE ATT&amp;CK v15  ·  STIX 2.1  ·  RFC 3227  ·  FIPS 140-2</text>
+<text x="62" y="48" class="t-sub">ENTERPRISE AI-ASSISTED INCIDENT RESPONSE  ·  v1.1  ·  REPRODUCIBLE AI  ·  MITRE ATT&amp;CK v15  ·  STIX 2.1  ·  RFC 3227  ·  FIPS-validated crypto</text>
 <!-- legend -->
 <line x1="680" y1="20" x2="700" y2="20" stroke="#64748b" stroke-width="1.4" marker-end="url(#a)"/>
 <text x="704" y="24" class="t-legd" fill="#94a3b8">Flow</text>
@@ -102,8 +102,8 @@
 <text x="218" y="112" text-anchor="middle" dominant-baseline="central" class="t-boxs s-rose">Case isolation boundary</text>
 
 <rect x="290" y="88" width="127" height="30" rx="5" class="b-purple"/>
-<text x="353" y="100" text-anchor="middle" dominant-baseline="central" class="t-boxh h-purple">Secrets Vault</text>
-<text x="353" y="112" text-anchor="middle" dominant-baseline="central" class="t-boxs s-purple">Vault · Rotation · No hardcode</text>
+<text x="353" y="100" text-anchor="middle" dominant-baseline="central" class="t-boxh h-purple">Secrets &amp; Token Vault</text>
+<text x="353" y="112" text-anchor="middle" dominant-baseline="central" class="t-boxs s-purple">Vault · Rotation · sealed re-ID map</text>
 
 <rect x="425" y="88" width="127" height="30" rx="5" class="b-rose"/>
 <text x="488" y="100" text-anchor="middle" dominant-baseline="central" class="t-boxh h-rose">WORM Audit Log</text>
@@ -128,7 +128,7 @@
 <!-- ══════════════════════════════════════════
      LAYER 1 — COLLECTION
 ══════════════════════════════════════════ -->
-<text x="12" y="166" class="t-layer">01  Evidence Collection  —  RFC 3227 Volatile Order  ·  RFC 3161 Trusted Timestamp  ·  Collector Integrity Verified</text>
+<text x="12" y="166" class="t-layer">01  Evidence Collection  —  RFC 3227 Volatile Order  ·  RFC 3161 Trusted Timestamp  ·  Fleet reach: agent / WinRM / SSH / offline-USB</text>
 <!-- volatile order badge -->
 <rect x="12" y="170" width="976" height="16" rx="3" fill="#dbeafe" stroke="#3b82f6" stroke-width="0.5"/>
 <text x="488" y="178" text-anchor="middle" dominant-baseline="central" style="font-size:8px;font-weight:700;fill:#1e40af;">RFC 3227 ORDER →  1 RAM  2  Processes  3  Network State  4  Disk  ·  Collector SHA-256 verified before execution  ·  RFC 3161 timestamp at acquisition</text>
@@ -136,7 +136,7 @@
 <rect x="12"  y="190" width="183" height="68" rx="6" class="b-blue" filter="url(#shadow)"/>
 <text x="103" y="212" text-anchor="middle" dominant-baseline="central" class="t-boxh h-blue">Windows</text>
 <text x="103" y="228" text-anchor="middle" dominant-baseline="central" class="t-boxs s-blue">Event Logs · Registry · Prefetch</text>
-<text x="103" y="243" text-anchor="middle" dominant-baseline="central" class="t-boxs s-blue">VSS Shadow · Artefacts</text>
+<text x="103" y="243" text-anchor="middle" dominant-baseline="central" class="t-boxs s-blue">VSS Shadow · write-blocked disk image</text>
 
 <rect x="203" y="190" width="183" height="68" rx="6" class="b-blue" filter="url(#shadow)"/>
 <text x="294" y="212" text-anchor="middle" dominant-baseline="central" class="t-boxh h-blue">Linux</text>
@@ -193,14 +193,14 @@
 <!-- ══════════════════════════════════════════
      LAYER 3 — MCP SERVER
 ══════════════════════════════════════════ -->
-<text x="12" y="388" class="t-layer">03  MCP Forensic Tool Server  —  RBAC · HMAC Signed · seccomp Sandboxed · Tool Versioned · Rate Limited · Zero-Egress Network</text>
+<text x="12" y="388" class="t-layer">03  MCP Forensic Tool Server  —  RBAC · HMAC Signed · seccomp Sandboxed · Tool Versioned · Rate Limited · Egress via broker only  -  Tools also run as plain CLIs (AI-independent)</text>
 
 <rect x="12" y="392" width="976" height="252" rx="8" class="b-green" filter="url(#shadow)"/>
-<text x="488" y="410" text-anchor="middle" dominant-baseline="central" style="font-size:10.5px;font-weight:800;fill:#14532d;">dfir-hawk-mcp-server  ·  Each tool: isolated subprocess  ·  seccomp / gVisor sandbox  ·  Tool version pinned per case  ·  HMAC per message</text>
+<text x="488" y="410" text-anchor="middle" dominant-baseline="central" style="font-size:10.5px;font-weight:800;fill:#14532d;">dfir-hawk-mcp-server  ·  Each tool: isolated subprocess  ·  seccomp / gVisor sandbox  ·  Tool version pinned per case  ·  HMAC per message  -  Evidence = untrusted input  -  Tool-call authZ: human-in-loop</text>
 
 <!-- security strip inside MCP -->
 <rect x="24" y="418" width="952" height="14" rx="3" fill="#dcfce7" stroke="#15803d" stroke-width="0.5"/>
-<text x="500" y="425" text-anchor="middle" dominant-baseline="central" style="font-size:7.5px;font-weight:700;fill:#14532d;">Input sanitisation · Path-traversal guard · File-size cap + chunked ingestion · Short-lived case-scoped tokens · Token revocation · Inter-tool data isolation · Zero outbound network</text>
+<text x="500" y="425" text-anchor="middle" dominant-baseline="central" style="font-size:7.5px;font-weight:700;fill:#14532d;">Input sanitisation · Path-traversal guard · File-size cap + chunked ingestion · Short-lived case-scoped tokens · Token revocation · Inter-tool data isolation · Egress only via a controlled broker  -  tools usable without the model</text>
 
 <!-- GROUP 1: Platform Parsers -->
 <text x="26" y="444" class="t-grp h-blue">Platform Parsers</text>
@@ -269,11 +269,11 @@
 <!-- ══════════════════════════════════════════
      LAYER 3.5 — VECTOR / RAG
 ══════════════════════════════════════════ -->
-<text x="12" y="676" class="t-layer">03.5  Vector Store + Anomaly Detection  —  RAG Context  ·  Embedding Freshness  ·  Clock Skew Detection</text>
+<text x="12" y="676" class="t-layer">03.5  Vector Store + Anomaly Detection  —  RAG Context  ·  Embedding Freshness  ·  Clock Skew  -  Per-case encrypted  -  Provenance-tagged chunks</text>
 
 <rect x="12" y="680" width="976" height="52" rx="6" class="b-indigo" filter="url(#shadow)"/>
 <text x="300" y="698" text-anchor="middle" dominant-baseline="central" class="t-boxh h-indigo">RAG Vector Store</text>
-<text x="300" y="714" text-anchor="middle" dominant-baseline="central" class="t-boxs s-indigo">ChromaDB / Qdrant  ·  Evidence embedded on ingest  ·  Relevant chunks retrieved per query  ·  Re-indexed on case change</text>
+<text x="300" y="714" text-anchor="middle" dominant-baseline="central" class="t-boxs s-indigo">ChromaDB / Qdrant  ·  Evidence embedded on ingest  ·  Relevant chunks retrieved per query  ·  Per-case encrypted, no cross-tenant  -  chunks carry artifact+offset+SHA-256</text>
 
 <rect x="612" y="688" width="2" height="36" fill="#c7d2fe"/>
 <text x="730" y="698" text-anchor="middle" dominant-baseline="central" class="t-boxh h-indigo">Anomaly Detection</text>
@@ -288,19 +288,19 @@
 <!-- ══════════════════════════════════════════
      LAYER 4 — DLP + AI
 ══════════════════════════════════════════ -->
-<text x="12" y="764" class="t-layer">04  Data Protection + AI Inference  —  Hard-Fail DLP  ·  Prompt Injection Guard  ·  Structured Output  ·  Confidence Scoring  ·  Legal Safety Filter</text>
+<text x="12" y="764" class="t-layer">04  Data Protection + AI Inference  —  Reversible tokenization  ·  Prompt Injection Guard  ·  Structured Output  ·  Deterministic + reproducible AI  ·  Legal Safety Filter</text>
 
 <!-- DLP strip -->
 <rect x="12" y="768" width="976" height="28" rx="5" class="b-amber" filter="url(#shadow)"/>
-<text x="488" y="782" text-anchor="middle" dominant-baseline="central" style="font-size:9.5px;font-weight:700;fill:#78350f;">DLP Filter  ·  Hard Fail  ·  PII / Hostname / IP Scrub  ·  Aborts on Exception  ·  Prompt Injection Guard applied post-scrub  ·  Jurisdiction policy check</text>
+<text x="488" y="782" text-anchor="middle" dominant-baseline="central" style="font-size:9.5px;font-weight:700;fill:#78350f;">Privacy Gateway  ·  Hard Fail  ·  Reversible tokenization (stable tokens + sealed re-ID map, keeps analytic utility)  ·  Aborts on Exception  ·  Evidence treated as untrusted (prompt-injection contained)  ·  Jurisdiction policy check</text>
 <line x1="990" y1="782" x2="1000" y2="782" class="l-err" marker-end="url(#ae)"/>
 
 <!-- Ollama -->
 <rect x="12"  y="806" width="478" height="96" rx="6" class="b-violet" filter="url(#shadow)"/>
 <text x="251" y="828" text-anchor="middle" dominant-baseline="central" class="t-boxh h-violet">Ollama  ·  Local  (Primary)</text>
-<text x="251" y="845" text-anchor="middle" dominant-baseline="central" class="t-boxs s-violet">Air-Gap Safe  ·  FIPS 140-2  ·  No data leaves network</text>
+<text x="251" y="845" text-anchor="middle" dominant-baseline="central" class="t-boxs s-violet">Air-Gap Safe  ·  FIPS-validated crypto  ·  No data leaves network</text>
 <text x="251" y="860" text-anchor="middle" dominant-baseline="central" class="t-boxs s-violet">Model weights SHA-256 verified  ·  Version pinned per case  ·  Drift detection</text>
-<text x="251" y="875" text-anchor="middle" dominant-baseline="central" class="t-boxs s-violet">CPU affinity + timing normalisation  ·  Fine-tuning pipeline via feedback</text>
+<text x="251" y="875" text-anchor="middle" dominant-baseline="central" class="t-boxs s-violet">Deterministic: temperature 0, fixed seed, pinned prompt (reproducible)  ·  Fine-tuning pipeline via feedback</text>
 <rect x="20" y="886" width="464" height="12" rx="3" fill="#ede9fe" stroke="#7c3aed" stroke-width="0.4"/>
 <text x="252" y="892" text-anchor="middle" dominant-baseline="central" style="font-size:7.5px;font-weight:700;fill:#4c1d95;">Default for all IR work  ·  Multi-model consensus on high-severity findings</text>
 
@@ -315,14 +315,14 @@
 
 <!-- AI output pipeline -->
 <rect x="12" y="912" width="976" height="28" rx="5" fill="#dcfce7" stroke="#15803d" stroke-width="0.7"/>
-<text x="488" y="926" text-anchor="middle" dominant-baseline="central" style="font-size:9px;font-weight:700;fill:#14532d;">AI Output Pipeline  ·  Pydantic schema enforcement  ·  Confidence score (0–1) per finding  ·  Hallucination check: every IOC cross-referenced  ·  Legal safety filter: no attribution without evidence threshold  ·  Unvalidated findings flagged</text>
+<text x="488" y="926" text-anchor="middle" dominant-baseline="central" style="font-size:9px;font-weight:700;fill:#14532d;">AI Output Pipeline  ·  Pydantic schema enforcement  ·  Confidence score (0–1) per finding  ·  Hallucination check: every IOC cross-referenced  ·  Legal safety filter: no attribution without evidence threshold  ·  Unvalidated findings flagged; model+prompt+seed recorded per finding</text>
 
 <line x1="488" y1="942" x2="488" y2="958" class="l-flow" marker-end="url(#a)"/>
 
 <!-- ══════════════════════════════════════════
      LAYER 5 — ANALYSIS
 ══════════════════════════════════════════ -->
-<text x="12" y="972" class="t-layer">05  Forensic Analysis  —  Deconfliction  ·  IOC Enrichment  ·  ATT&amp;CK Scoring  ·  Hypothesis Engine  ·  Deception Detection  ·  Playbook Engine</text>
+<text x="12" y="972" class="t-layer">05  Forensic Analysis  —  Deconfliction  ·  IOC Enrichment  ·  ATT&amp;CK Scoring  ·  Hypothesis Engine  ·  Deception  -  Versioned detections  -  Eval harness (precision/recall)  ·  Playbook Engine</text>
 
 <rect x="12"  y="976" width="182" height="62" rx="6" class="b-orange" filter="url(#shadow)"/>
 <text x="103" y="998" text-anchor="middle" dominant-baseline="central" class="t-boxh h-orange">Timeline</text>
@@ -337,7 +337,7 @@
 <rect x="392" y="976" width="182" height="62" rx="6" class="b-orange" filter="url(#shadow)"/>
 <text x="483" y="998" text-anchor="middle" dominant-baseline="central" class="t-boxh h-orange">Threat Hunt</text>
 <text x="483" y="1014" text-anchor="middle" dominant-baseline="central" class="t-boxs s-orange">YARA · Sigma</text>
-<text x="483" y="1029" text-anchor="middle" dominant-baseline="central" style="font-size:8px;fill:#c2410c;">ATT&amp;CK weighted confidence</text>
+<text x="483" y="1029" text-anchor="middle" dominant-baseline="central" style="font-size:8px;fill:#c2410c;">Versioned rules  -  FP-managed</text>
 
 <rect x="582" y="976" width="182" height="62" rx="6" class="b-orange" filter="url(#shadow)"/>
 <text x="673" y="998" text-anchor="middle" dominant-baseline="central" class="t-boxh h-orange">EDR Triage</text>
@@ -353,7 +353,7 @@
 <rect x="12" y="1048" width="976" height="26" rx="5" fill="#fef9ee" stroke="#f59e0b" stroke-width="0.7"/>
 <text x="160" y="1061" text-anchor="middle" dominant-baseline="central" style="font-size:9px;font-weight:700;fill:#78350f;">IOC Enrichment</text>
 <line x1="210" y1="1061" x2="228" y2="1061" stroke="#f59e0b" stroke-width="1.2" stroke-dasharray="3 3" marker-end="url(#ao)"/>
-<text x="350" y="1061" text-anchor="middle" dominant-baseline="central" style="font-size:8.5px;fill:#92400e;">VirusTotal  ·  Shodan  ·  MISP</text>
+<text x="350" y="1061" text-anchor="middle" dominant-baseline="central" style="font-size:8.5px;fill:#92400e;">broker-gated: VirusTotal  ·  Shodan  ·  MISP</text>
 <rect x="470" y="1053" width="1" height="14" fill="#fcd34d"/>
 <text x="580" y="1061" text-anchor="middle" dominant-baseline="central" style="font-size:9px;font-weight:700;fill:#78350f;">IR Playbook Engine</text>
 <text x="760" y="1061" text-anchor="middle" dominant-baseline="central" style="font-size:8.5px;fill:#92400e;">Ransomware · BEC · Cloud Breach playbooks  ·  Auto-triggers on detection</text>
@@ -371,7 +371,7 @@
 
 <!-- gate -->
 <rect x="12" y="1110" width="976" height="26" rx="5" class="b-gate" filter="url(#shadow)"/>
-<text x="488" y="1123" text-anchor="middle" dominant-baseline="central" class="h-gate" style="font-size:9.5px;">Analyst Review Gate  —  Human Sign-Off Required  ·  Confidence scores visible  ·  Corrections: {tool · finding_id · correction · analyst_id · timestamp}</text>
+<text x="488" y="1123" text-anchor="middle" dominant-baseline="central" class="h-gate" style="font-size:9.5px;">Analyst Review Gate  —  Human Sign-Off Required  ·  Findings cite artifact+SHA-256, rule ver, model/prompt/seed  ·  Corrections: {tool · finding_id · correction · analyst_id · timestamp}</text>
 
 <!-- 5 output types -->
 <rect x="12"  y="1146" width="182" height="58" rx="6" class="b-red" filter="url(#shadow)"/>
@@ -387,7 +387,7 @@
 <rect x="392" y="1146" width="182" height="58" rx="6" class="b-red" filter="url(#shadow)"/>
 <text x="483" y="1165" text-anchor="middle" dominant-baseline="central" class="t-boxh h-red">Court-Ready Package</text>
 <text x="483" y="1181" text-anchor="middle" dominant-baseline="central" class="t-boxs s-red">SHA-256 · Chain of Custody</text>
-<text x="483" y="1196" text-anchor="middle" dominant-baseline="central" style="font-size:8px;fill:#b91c1c;">Versioned · Signed · Witness notes</text>
+<text x="483" y="1196" text-anchor="middle" dominant-baseline="central" style="font-size:8px;fill:#b91c1c;">Versioned · Signed · reproducible (pinned model/prompt/seed)</text>
 
 <rect x="582" y="1146" width="192" height="58" rx="6" class="b-red" filter="url(#shadow)"/>
 <text x="678" y="1160" text-anchor="middle" dominant-baseline="central" class="t-boxh h-red">Regulatory Output</text>
@@ -417,19 +417,19 @@
 
 <rect x="316" y="1274" width="296" height="58" rx="6" class="b-slate" filter="url(#shadow)"/>
 <text x="464" y="1294" text-anchor="middle" dominant-baseline="central" class="t-boxh h-slate">Container  ·  Air-Gapped</text>
-<text x="464" y="1310" text-anchor="middle" dominant-baseline="central" class="t-boxs s-slate">Docker · FIPS 140-2 · No Egress</text>
+<text x="464" y="1310" text-anchor="middle" dominant-baseline="central" class="t-boxs s-slate">Docker · FIPS-validated crypto · No Egress</text>
 <text x="464" y="1324" text-anchor="middle" dominant-baseline="central" style="font-size:8px;fill:#64748b;">Health endpoint · cgroup limits · Signed offline updates</text>
 
 <rect x="620" y="1274" width="368" height="58" rx="6" class="b-slate" filter="url(#shadow)"/>
 <text x="804" y="1294" text-anchor="middle" dominant-baseline="central" class="t-boxh h-slate">Distributed  /  Enterprise</text>
-<text x="804" y="1310" text-anchor="middle" dominant-baseline="central" class="t-boxs s-slate">Multi-node · Job queue · Parallel analysis across nodes</text>
+<text x="804" y="1310" text-anchor="middle" dominant-baseline="central" class="t-boxs s-slate">Multi-node · Job queue · GPU-scheduled inference  -  fleet orchestration</text>
 <text x="804" y="1324" text-anchor="middle" dominant-baseline="central" style="font-size:8px;fill:#64748b;">Case state snapshots · Evidence backup · DR recovery runbook</text>
 
 <!-- ══════════════════════════════════════════
      FOOTER
 ══════════════════════════════════════════ -->
 <rect x="0" y="1348" width="1000" height="52" fill="#0f172a"/>
-<text x="488" y="1366" text-anchor="middle" style="font-size:9.5px;fill:#60a5fa;font-weight:700;letter-spacing:0.02em;">DFIR Hawk v1.0</text>
-<text x="488" y="1384" text-anchor="middle" style="font-size:8px;fill:#475569;">RFC 3227 · RFC 3161 · AES-256 · FIPS 140-2 · STIX 2.1 · MITRE ATT&amp;CK v15 · WORM audit · seccomp · HMAC · RAG · Vault · Pydantic · Fine-tuning · Playbooks · Regulatory outputs</text>
+<text x="488" y="1366" text-anchor="middle" style="font-size:9.5px;fill:#60a5fa;font-weight:700;letter-spacing:0.02em;">DFIR Hawk v1.1</text>
+<text x="488" y="1384" text-anchor="middle" style="font-size:8px;fill:#475569;">RFC 3227 · RFC 3161 · AES-256 · FIPS-validated crypto · STIX 2.1 · MITRE ATT&amp;CK v15 · WORM audit · seccomp · HMAC · RAG · Vault · Pydantic · Fine-tuning · Playbooks · Regulatory outputs  -  Tokenization  -  Reproducible AI  -  Provenance-linked findings  -  Egress broker</text>
 
 </svg>
