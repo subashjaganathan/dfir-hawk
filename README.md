@@ -24,6 +24,18 @@ implementation (known-good whitelist built from NIST NSRL).
 Right now we are building the Windows engine. From there, we build out the rest
 of the architecture one layer at a time.
 
+## Download
+
+Prebuilt binaries are attached to the latest release:
+**[Releases](https://github.com/subashjaganathan/dfir-hawk/releases/latest)**
+
+- `HawkCollector.exe` - self-extracting, self-elevating collector (run on the target host)
+- `hawk.exe` - the analyzer (import a `.hawk`; no install)
+- `SHA256SUMS.txt` - verify integrity before running
+
+Binaries are currently unsigned (SmartScreen/EDR may warn); code-signing is on
+the roadmap. Or build from source (see Quick start).
+
 ## Platform architecture
 
 The diagram is the blueprint we build against - every part of this repo maps to
