@@ -19,7 +19,7 @@
   header .sub { color: var(--dim); font-size:12px; }
   header .case { margin-left:auto; color:var(--dim); font-size:12px; }
 
-  /* ---------- home (Redline-style start page) ---------- */
+  /* ---------- home (start page) ---------- */
   #home { display:flex; gap:24px; align-items:center; justify-content:center; height:calc(100vh - 49px); }
   .card { width:300px; padding:28px 24px; background:var(--bg2); border:1px solid var(--line); border-radius:8px; cursor:pointer; transition:.15s; }
   .card:hover { border-color: var(--accent); transform: translateY(-2px); }
@@ -103,7 +103,7 @@
     Generate Report</button>
 </header>
 
-<!-- start page (mirrors Redline's home) -->
+<!-- start page -->
 <div id="home">
   <div class="card" onclick="importSession()">
     <h2>Import Session Data</h2>
@@ -456,7 +456,7 @@ function renderNetwork() {
     </tr>`).join('');
 }
 
-/* ---------------- timeline (with Redline-style pivot) ---------------- */
+/* ---------------- timeline (with pivot) ---------------- */
 function renderTimeline() {
   const q = document.getElementById('tlFilter').value.toLowerCase();
   const cat = document.getElementById('tlCategory').value;

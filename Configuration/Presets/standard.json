@@ -1,7 +1,7 @@
 {
   "schemaVersion": "1.0",
   "preset": "standard",
-  "description": "Fast triage (~10-15 min). Volatile data + key execution/persistence artifacts. Mirrors Redline's Standard Collector.",
+  "description": "Fast triage (~10-15 min). Volatile data + key execution/persistence artifacts.",
   "modules": [
     "System/system_info",
     "Execution/processes",

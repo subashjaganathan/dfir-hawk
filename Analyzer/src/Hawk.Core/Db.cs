@@ -15,7 +15,7 @@ public static class Db
         return conn;
     }
 
-    // Modeled on Redline's AuditDataSchema concept: one table per artifact
+    // Audit-data schema: one table per artifact
     // type + session metadata + analyst state (scores, tags) kept separate
     // from raw observations.
     private const string Schema = """

@@ -6,7 +6,7 @@ Two layers, both consulted at import time (step 1–2 of the trust ladder):
 
 - Download: https://www.nist.gov/itl/ssd/software-quality-group/national-software-reference-library-nsrl/nsrl-download
   → "RDS Modern (minimal)" set (SQLite distribution since 2022, ~few GB).
-- Public domain, same data source Mandiant used for Redline's DefaultWhitelist.
+- Public domain NIST NSRL Reference Data Set.
 - Build step (`hawk whitelist build`):
   1. Extract MD5 column from the RDS minimal set
   2. Build a Bloom filter (~1.4 bytes/hash @ 0.1% FP rate → ~60 MB for 40M hashes)
@@ -22,7 +22,7 @@ Two layers, both consulted at import time (step 1–2 of the trust ladder):
   produces `org-baseline.json`: exact SHA256 set + paths + service names +
   scheduled tasks + run keys observed on the clean system.
 - Subsequent imports diff against it; baseline matches → TRUSTED.
-- This is Hawk's improvement over Redline (Redline had no org-level baseline).
+- Org-level baseline layered on top of the NSRL known-good set.
 
 ## Order of evaluation (must never change)
 

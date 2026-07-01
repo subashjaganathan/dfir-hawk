@@ -9,8 +9,8 @@ north-star architecture — an AI-assisted, MCP-driven, cross-platform DFIR
 pipeline with explainable triage, RAG, DLP, and court-ready reporting — is in
 [`Docs/architecture.svg`](Docs/architecture.svg).
 
-The **foundation shipping today** (this repo) is a Redline-class Windows triage
-engine: a dependency-free PowerShell **collector** that produces a sealed
+The **foundation shipping today** (this repo) is an enterprise-grade Windows
+triage engine: a dependency-free PowerShell **collector** that produces a sealed
 `.hawk` evidence session, and a .NET 8 **analyzer** (`hawk.exe`) that imports
 it, scores artifacts with a false-positive-resistant Malware Risk Index (MRI),
 parses raw forensic artifacts (EVTX/prefetch/shimcache/amcache/`$MFT`/`$UsnJrnl`/
@@ -39,10 +39,9 @@ report.
 | 07 Deployment | Local / air-gapped container / distributed | ◐ single-file + folder collector; container/distributed roadmap |
 | Perimeter | Auth, Vault, WORM, RBAC, SBOM | ○ roadmap |
 
-Built as a modern replacement for Mandiant Redline (discontinued, no Win11
-support). Clean-room implementation — no Redline code or data; the known-good
-whitelist is built from NIST NSRL. HawkSuite runs on
-**Windows 7 SP1 → Windows 11 / Server 2025**.
+A modern, open-source Windows triage-and-analysis platform with an original,
+clean-room implementation; the known-good whitelist is built from NIST NSRL.
+Runs on **Windows 7 SP1 → Windows 11 / Server 2025**.
 
 ---
 
@@ -52,8 +51,8 @@ The predecessor (`windows-dfir-toolkit`) collected well but its analysis was
 noisy: single-signal rules (any `certutil`, any HKCU CLSID, any unsigned binary)
 produced wall-to-wall false positives, and its HTML output was inaccurate.
 
-HawkSuite fixes that at the architecture level by separating **collection** from
-**analysis** (like Redline):
+DFIR Hawk fixes that at the architecture level by separating **collection** from
+**analysis**:
 
 - **Collector** emits *raw observations only* — no verdicts, no severity.
 - **Analyzer** applies a **trust ladder** (known-good hash → org baseline →
@@ -211,7 +210,7 @@ size-capped circular buffer (`packetCaptureMaxMB`, default 500). Output lands in
 ## Memory forensics (optional Volatility3 hand-off)
 `hawk memory <hawk.db> --image <physmem.raw> [--handles]` runs Volatility3 (if
 installed; detected via `HAWK_VOL`, `vol` on PATH, or `python -m volatility3`)
-and ingests the Redline-parity results into the session, each raised as an
+and ingests the key memory-forensics results into the session, each raised as an
 ATT&CK-tagged finding:
 - **injected/hollowed code** — `malfind` (T1055)
 - **hidden processes** — `psscan` vs `pslist` = DKOM (T1014)
@@ -231,4 +230,6 @@ Volatility3 is not bundled; with none present the step logs a note and skips.
 > elevated-collection data is recommended before production use.
 
 ## License
-See `LICENSE`.
+DFIR Hawk is released under the **MIT License** — see [LICENSE](LICENSE).
+Copyright (c) 2026 Subash Jaganathan. Free to use, modify, and distribute,
+including commercially, with attribution.

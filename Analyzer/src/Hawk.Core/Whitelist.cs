@@ -217,7 +217,7 @@ public static class WhitelistBuilder
 /// <summary>
 /// Builds org-baseline.json from a session collected on a KNOWN-CLEAN gold
 /// image (`hawk baseline create`). Exact-match layer of the trust ladder —
-/// Hawk's improvement over Redline, which had no org-level baseline.
+/// Adds an org-level known-good baseline on top of NSRL.
 /// </summary>
 public static class BaselineBuilder
 {

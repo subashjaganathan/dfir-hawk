@@ -1,7 +1,7 @@
 <#
 .SYNOPSIS
     Hawk Collector Builder - generates a portable, USB-ready collector package.
-    Equivalent of Redline's "Create Collector" workflow.
+    Produces a self-contained collector folder to run on the target host.
 
 .DESCRIPTION
     Assembles selected collection modules + preset config + runtime into a

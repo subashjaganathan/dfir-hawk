@@ -6,7 +6,7 @@ namespace Hawk.Core;
 /// <summary>
 /// Malware Risk Index engine. Trust ladder first (NSRL → baseline → signer →
 /// expected-process conformance), scoring rules only for what remains.
-/// Clean-room reimplementation of the Redline MRI concept.
+/// Explainable, false-positive-resistant malware risk score.
 /// </summary>
 public class MriEngine
 {

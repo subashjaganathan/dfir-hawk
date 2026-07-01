@@ -5,7 +5,7 @@
     RAW COLLECTION ONLY. Records committed memory that is BOTH private
     (MEM_PRIVATE, i.e. not backed by an image/file on disk) AND executable
     (PAGE_EXECUTE*). That combination is the classic code-injection / process-
-    hollowing / shellcode footprint Redline surfaced via Memoryze. Legitimate
+    hollowing / shellcode footprint. Legitimate
     JIT engines (.NET, browsers, Java) also produce it, so this module ONLY
     records the facts (region addresses/sizes/protections + the host process
     identity/signature); the analyzer's MRI rule decides significance by

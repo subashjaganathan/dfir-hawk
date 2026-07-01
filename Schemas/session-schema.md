@@ -1,6 +1,6 @@
 # .hawk Session Format — v1.0
 
-A `.hawk` file is a ZIP container (like Redline's `.mans`). Layout:
+A `.hawk` file is a ZIP container. Layout:
 
 ```
 CASE-2026-001_HOSTNAME_20260602T120000Z.hawk

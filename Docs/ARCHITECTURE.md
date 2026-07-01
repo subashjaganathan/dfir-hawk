@@ -1,6 +1,7 @@
-# Hawk Suite — Architecture
+# DFIR Hawk — Architecture
 
-A modern, open-source replacement for Mandiant Redline (EOL). Same workflow, clean-room implementation.
+A modern, open-source Windows incident-response triage and analysis platform.
+Original, clean-room implementation.
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
@@ -31,7 +32,7 @@ A modern, open-source replacement for Mandiant Redline (EOL). Same workflow, cle
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
-## Design rules (learned from Redline teardown)
+## Design rules
 
 1. **Collector collects. Analyzer analyzes.** No scoring, no detection logic,
    no HTML on the target host. This is what kills false positives: detection
@@ -48,22 +49,21 @@ A modern, open-source replacement for Mandiant Redline (EOL). Same workflow, cle
 5. **Schema versioning everywhere.** Every JSON artifact carries
    schemaVersion; the importer refuses unknown majors.
 
-## Redline feature → Hawk equivalent
+## Capabilities
 
-| Redline                          | Hawk                                   |
-|----------------------------------|----------------------------------------|
-| Collector Builder (3 types)      | Builder presets: Standard / Comprehensive / IOC-Search |
-| .mans session file               | .hawk (ZIP: manifest + JSON + raw artifacts) |
-| MRI score + worklist             | MRI engine (Configuration/MRI/*.json)  |
-| DefaultWhitelist (676k MD5)      | NSRL RDS bloom filter + org baseline   |
-| Whitelist bloom filter           | Same technique, built from NSRL        |
-| TimeWrinkle / TimeCrunch         | Timeline pivot windows + field filters |
-| IOC Finder (OpenIOC)             | Sigma + YARA + OpenIOC import          |
-| XulRunner desktop UI             | WebView2 desktop window (same idea, modern engine) |
-| Memoryze integration             | WinPmem acquisition + Volatility3 hand-off (later phase) |
+| Area              | Implementation                                          |
+|-------------------|---------------------------------------------------------|
+| Collector builder | Presets: Standard / Comprehensive / IOC-Search          |
+| Session file      | `.hawk` (ZIP: manifest + JSON + raw artifacts)          |
+| Risk scoring      | MRI engine (`Configuration/MRI/*.json`), 0–100 per item |
+| Known-good        | NSRL RDS bloom filter + org baseline                    |
+| Timeline          | Pivot windows + field filters                           |
+| IOC matching      | Sigma + YARA + OpenIOC import                           |
+| Analyst UI        | WebView2 desktop window                                 |
+| Memory            | WinPmem acquisition + Volatility3 hand-off              |
 
 ## Legal
 
-No Redline binaries, whitelist data, or configuration content is included.
+No third-party binaries, whitelist data, or configuration content is included.
 All rule content is sourced from public documentation (Microsoft docs, NSRL,
 SANS posters, MITRE ATT&CK) and original work.

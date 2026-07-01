@@ -6,7 +6,7 @@ namespace Hawk.Core;
 
 /// <summary>
 /// Optional memory-forensics hand-off. Runs Volatility3 (if available) against a
-/// captured RAM image and ingests the Redline-parity results into the session:
+/// captured RAM image and ingests the key memory-forensics results into the session:
 ///   pslist + psscan  -> memory_processes (psscan-only rows = potentially hidden),
 ///   malfind          -> memory_injections + injected-code findings,
 ///   netscan          -> memory_netscan.

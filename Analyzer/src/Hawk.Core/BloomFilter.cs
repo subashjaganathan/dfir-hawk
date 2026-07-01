@@ -4,7 +4,7 @@ namespace Hawk.Core;
 
 /// <summary>
 /// Bloom filter keyed on MD5 hex strings (NSRL whitelist). Same technique as
-/// Redline's DefaultWhitelist.bloom, clean-room implementation.
+/// an NSRL-backed known-good hash set (original implementation).
 ///
 /// Because the keys are themselves MD5 digests (uniformly distributed), the
 /// k index functions are derived directly from the digest bytes via

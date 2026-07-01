@@ -9,7 +9,7 @@ namespace Hawk.Analyzer;
 
 /// <summary>
 /// Hawk Analyzer main window — a WebView2-hosted UI in a desktop shell,
-/// the same architecture Redline used (XulRunner/Gecko in a window).
+/// an embedded browser control hosting the analyst UI.
 /// </summary>
 public class MainForm : Form
 {
