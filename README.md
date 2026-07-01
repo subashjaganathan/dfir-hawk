@@ -21,7 +21,8 @@ ATT&CK, and produces an interactive UI and a self-contained HTML report. Runs on
 **Windows 7 SP1 → Windows 11 / Server 2025** — an original, clean-room
 implementation (known-good whitelist built from NIST NSRL).
 
-The remaining layers of the architecture are the roadmap, developed here.
+Right now we are building the Windows engine. From there, we build out the rest
+of the architecture one layer at a time.
 
 ## Platform architecture
 
@@ -32,17 +33,17 @@ one of its layers. The table tracks what is implemented versus planned.
 
 | Layer | In the architecture | Status here |
 |-------|---------------------|-------------|
-| 01 Collection | Win/Linux/macOS/Cloud/Mobile, RFC 3227 order | ✅ **Windows** (53 modules, RFC 3227); other platforms planned |
-| 02 Staging | Encrypted, classified case directory | ◐ sealed, hash-verified `.hawk` (encryption/classification planned) |
-| 03 MCP tool server | Sandboxed forensic MCP tools for AI | ○ planned (parsers exist as analyzer libraries today) |
-| 03.5 RAG / anomaly | Vector store, outlier detection | ○ planned |
-| 04 DLP + AI | Local-first (Ollama) / cloud fallback, hard-fail DLP | ○ planned |
-| 05 Analysis | Timeline, memory, threat-hunt, MRI, ATT&CK | ✅ MRI + ATT&CK findings + Volatility3 memory; YARA/Sigma planned |
-| 06 Reporting | STIX 2.1, court-ready, regulatory, exec summary | ◐ self-contained HTML report; STIX/regulatory planned |
-| 07 Deployment | Local / air-gapped container / distributed | ◐ single-file + folder collector; container/distributed planned |
-| Perimeter | Auth, Vault, WORM audit, RBAC, SBOM | ○ planned |
+| 01 Collection | Win/Linux/macOS/Cloud/Mobile, RFC 3227 order | **Done** — Windows (53 modules, RFC 3227); other platforms planned |
+| 02 Staging | Encrypted, classified case directory | Partial — sealed, hash-verified `.hawk` (encryption/classification planned) |
+| 03 MCP tool server | Sandboxed forensic MCP tools for AI | Planned (parsers exist as analyzer libraries today) |
+| 03.5 RAG / anomaly | Vector store, outlier detection | Planned |
+| 04 DLP + AI | Local-first (Ollama) / cloud fallback, hard-fail DLP | Planned |
+| 05 Analysis | Timeline, memory, threat-hunt, MRI, ATT&CK | **Done** — MRI + ATT&CK findings + Volatility3 memory; YARA/Sigma planned |
+| 06 Reporting | STIX 2.1, court-ready, regulatory, exec summary | Partial — self-contained HTML report; STIX/regulatory planned |
+| 07 Deployment | Local / air-gapped container / distributed | Partial — single-file + folder collector; container/distributed planned |
+| Perimeter | Auth, Vault, WORM audit, RBAC, SBOM | Planned |
 
-Legend: ✅ implemented · ◐ partial · ○ planned
+Status: **Done** = implemented · Partial = in progress · Planned = not started.
 
 ---
 
