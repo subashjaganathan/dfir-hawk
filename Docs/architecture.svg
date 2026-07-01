@@ -1,0 +1,435 @@
+<svg width="100%" viewBox="0 0 1000 1400" role="img" xmlns="http://www.w3.org/2000/svg">
+<title>DFIR Hawk v1.0 — Enterprise Architecture</title>
+<defs>
+  <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+    <path d="M1 2L9 5L1 8" fill="none" stroke="#64748b" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+  </marker>
+  <marker id="ae" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+    <path d="M1 2L9 5L1 8" fill="none" stroke="#ef4444" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+  </marker>
+  <marker id="at" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+    <path d="M1 2L9 5L1 8" fill="none" stroke="#0d9488" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+  </marker>
+  <marker id="ao" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+    <path d="M1 2L9 5L1 8" fill="none" stroke="#f59e0b" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+  </marker>
+  <linearGradient id="hdr" x1="0" y1="0" x2="1" y2="0">
+    <stop offset="0%" stop-color="#0f172a"/>
+    <stop offset="100%" stop-color="#1e3a5f"/>
+  </linearGradient>
+  <filter id="shadow" x="-2%" y="-2%" width="104%" height="108%">
+    <feDropShadow dx="0" dy="1" stdDeviation="2" flood-color="#00000018"/>
+  </filter>
+  <style>
+    svg { font-family: "Segoe UI", system-ui, sans-serif; }
+
+    /* typography */
+    .t-title  { font-size:22px; font-weight:800; fill:#ffffff; letter-spacing:-0.02em; }
+    .t-sub    { font-size:9px;  font-weight:600; fill:#94a3b8; letter-spacing:0.08em; }
+    .t-layer  { font-size:8px;  font-weight:700; fill:#94a3b8; letter-spacing:0.1em; text-transform:uppercase; }
+    .t-boxh   { font-size:11.5px; font-weight:700; }
+    .t-boxs   { font-size:9.5px; }
+    .t-grp    { font-size:7.5px; font-weight:700; letter-spacing:0.08em; text-transform:uppercase; }
+    .t-badge  { font-size:8px; font-weight:700; }
+    .t-legd   { font-size:8.5px; fill:#64748b; }
+
+    /* lines */
+    .l-div  { stroke:#e2e8f0; stroke-width:0.7; }
+    .l-flow { stroke:#64748b; stroke-width:1.4; fill:none; }
+    .l-err  { stroke:#ef4444; stroke-width:1.2; fill:none; stroke-dasharray:5 3; }
+    .l-feed { stroke:#0d9488; stroke-width:1.4; fill:none; stroke-dasharray:6 3; }
+    .l-enrch{ stroke:#f59e0b; stroke-width:1.2; fill:none; stroke-dasharray:3 3; }
+
+    /* layer bands */
+    .band   { fill:#f8fafc; stroke:#e2e8f0; stroke-width:0.8; }
+
+    /* box palettes */
+    .b-blue  { fill:#eff6ff; stroke:#3b82f6; stroke-width:0.9; }   .h-blue  { fill:#1d4ed8; } .s-blue  { fill:#3b82f6; }
+    .b-slate { fill:#f8fafc; stroke:#94a3b8; stroke-width:0.9; }   .h-slate { fill:#1e293b; } .s-slate { fill:#475569; }
+    .b-green { fill:#f0fdf4; stroke:#16a34a; stroke-width:0.9; }   .h-green { fill:#14532d; } .s-green { fill:#166534; }
+    .b-tool  { fill:#dcfce7; stroke:#15803d; stroke-width:0.7; }
+    .b-indigo{ fill:#eef2ff; stroke:#4f46e5; stroke-width:0.9; }   .h-indigo{ fill:#1e1b4b; } .s-indigo{ fill:#4338ca; }
+    .b-amber { fill:#fffbeb; stroke:#d97706; stroke-width:0.9; }   .h-amber { fill:#78350f; } .s-amber { fill:#92400e; }
+    .b-violet{ fill:#faf5ff; stroke:#7c3aed; stroke-width:0.9; }   .h-violet{ fill:#3b0764; } .s-violet{ fill:#6d28d9; }
+    .b-violet2{fill:#f3e8ff; stroke:#6d28d9; stroke-width:0.9; }
+    .b-orange{ fill:#fff7ed; stroke:#ea580c; stroke-width:0.9; }   .h-orange{ fill:#7c2d12; } .s-orange{ fill:#c2410c; }
+    .b-red   { fill:#fef2f2; stroke:#dc2626; stroke-width:0.9; }   .h-red   { fill:#7f1d1d; } .s-red   { fill:#b91c1c; }
+    .b-teal  { fill:#f0fdfa; stroke:#0d9488; stroke-width:0.9; }   .h-teal  { fill:#134e4a; } .s-teal  { fill:#0d9488; }
+    .b-rose  { fill:#fff1f2; stroke:#e11d48; stroke-width:0.9; }   .h-rose  { fill:#881337; } .s-rose  { fill:#be123c; }
+    .b-purple{ fill:#fdf4ff; stroke:#a21caf; stroke-width:0.9; }   .h-purple{ fill:#4a044e; } .s-purple{ fill:#86198f; }
+    .b-gate  { fill:#fefce8; stroke:#ca8a04; stroke-width:1.2; }   .h-gate  { fill:#713f12; font-weight:700; }
+    .b-dark  { fill:#0f172a; stroke:#334155; stroke-width:0.9; }
+  </style>
+</defs>
+
+<!-- ══════════════════════════════════════════
+     HEADER BAND
+══════════════════════════════════════════ -->
+<rect x="0" y="0" width="1000" height="62" fill="url(#hdr)"/>
+<!-- hawk icon -->
+<polygon points="32,12 50,48 32,36 14,48" fill="#3b82f6" opacity="0.9"/>
+<polygon points="32,12 50,48 32,26" fill="#60a5fa" opacity="0.6"/>
+<circle cx="40" cy="19" r="4" fill="#93c5fd"/>
+<!-- title -->
+<text x="62" y="30" class="t-title">DFIR <tspan fill="#60a5fa">Hawk</tspan></text>
+<text x="62" y="48" class="t-sub">ENTERPRISE AI-ASSISTED INCIDENT RESPONSE  ·  v1.0  ·  69 CONTROLS  ·  MITRE ATT&amp;CK v15  ·  STIX 2.1  ·  RFC 3227  ·  FIPS 140-2</text>
+<!-- legend -->
+<line x1="680" y1="20" x2="700" y2="20" stroke="#64748b" stroke-width="1.4" marker-end="url(#a)"/>
+<text x="704" y="24" class="t-legd" fill="#94a3b8">Flow</text>
+<line x1="730" y1="20" x2="750" y2="20" stroke="#ef4444" stroke-width="1.2" stroke-dasharray="5 3" marker-end="url(#ae)"/>
+<text x="754" y="24" class="t-legd" fill="#94a3b8">Abort</text>
+<line x1="790" y1="20" x2="810" y2="20" stroke="#0d9488" stroke-width="1.4" stroke-dasharray="6 3" marker-end="url(#at)"/>
+<text x="814" y="24" class="t-legd" fill="#94a3b8">Feedback</text>
+<line x1="680" y1="40" x2="700" y2="40" stroke="#f59e0b" stroke-width="1.2" stroke-dasharray="3 3" marker-end="url(#ao)"/>
+<text x="704" y="44" class="t-legd" fill="#94a3b8">Enrichment</text>
+<rect x="740" y="32" width="60" height="16" rx="4" fill="#dcfce7" stroke="#15803d" stroke-width="0.6"/>
+<text x="770" y="40" text-anchor="middle" dominant-baseline="central" style="font-size:7.5px;font-weight:700;fill:#14532d;">Control</text>
+<rect x="810" y="32" width="60" height="16" rx="4" fill="#fef2f2" stroke="#dc2626" stroke-width="0.6"/>
+<text x="840" y="40" text-anchor="middle" dominant-baseline="central" style="font-size:7.5px;font-weight:700;fill:#7f1d1d;">Boundary</text>
+
+<!-- ══════════════════════════════════════════
+     CROSS-CUTTING PERIMETER
+══════════════════════════════════════════ -->
+<rect x="12" y="70" width="976" height="56" rx="6" class="b-rose" filter="url(#shadow)"/>
+<text x="24" y="84" class="t-layer" style="fill:#be123c;">Platform Security Perimeter</text>
+<!-- 7 controls in a clean row -->
+<rect x="20"  y="88" width="127" height="30" rx="5" class="b-rose"/>
+<text x="83"  y="100" text-anchor="middle" dominant-baseline="central" class="t-boxh h-rose">Auth &amp; Identity</text>
+<text x="83"  y="112" text-anchor="middle" dominant-baseline="central" class="t-boxs s-rose">MFA · SSO · RBAC</text>
+
+<rect x="155" y="88" width="127" height="30" rx="5" class="b-rose"/>
+<text x="218" y="100" text-anchor="middle" dominant-baseline="central" class="t-boxh h-rose">Multi-Tenancy</text>
+<text x="218" y="112" text-anchor="middle" dominant-baseline="central" class="t-boxs s-rose">Case isolation boundary</text>
+
+<rect x="290" y="88" width="127" height="30" rx="5" class="b-purple"/>
+<text x="353" y="100" text-anchor="middle" dominant-baseline="central" class="t-boxh h-purple">Secrets Vault</text>
+<text x="353" y="112" text-anchor="middle" dominant-baseline="central" class="t-boxs s-purple">Vault · Rotation · No hardcode</text>
+
+<rect x="425" y="88" width="127" height="30" rx="5" class="b-rose"/>
+<text x="488" y="100" text-anchor="middle" dominant-baseline="central" class="t-boxh h-rose">WORM Audit Log</text>
+<text x="488" y="112" text-anchor="middle" dominant-baseline="central" class="t-boxs s-rose">SHA-256 chained · Ext. sink</text>
+
+<rect x="560" y="88" width="127" height="30" rx="5" class="b-rose"/>
+<text x="623" y="100" text-anchor="middle" dominant-baseline="central" class="t-boxh h-rose">Host Integrity</text>
+<text x="623" y="112" text-anchor="middle" dominant-baseline="central" class="t-boxs s-rose">eBPF tamper detection</text>
+
+<rect x="695" y="88" width="127" height="30" rx="5" class="b-rose"/>
+<text x="758" y="100" text-anchor="middle" dominant-baseline="central" class="t-boxh h-rose">SLA Enforcement</text>
+<text x="758" y="112" text-anchor="middle" dominant-baseline="central" class="t-boxs s-rose">72h GDPR / NIS2 timer</text>
+
+<rect x="830" y="88" width="148" height="30" rx="5" class="b-purple"/>
+<text x="904" y="100" text-anchor="middle" dominant-baseline="central" class="t-boxh h-purple">Supply Chain</text>
+<text x="904" y="112" text-anchor="middle" dominant-baseline="central" class="t-boxs s-purple">SBOM · Hash-pinned deps</text>
+
+<!-- divider -->
+<line x1="12" y1="134" x2="988" y2="134" class="l-div"/>
+<line x1="488" y1="134" x2="488" y2="152" class="l-flow" marker-end="url(#a)"/>
+
+<!-- ══════════════════════════════════════════
+     LAYER 1 — COLLECTION
+══════════════════════════════════════════ -->
+<text x="12" y="166" class="t-layer">01  Evidence Collection  —  RFC 3227 Volatile Order  ·  RFC 3161 Trusted Timestamp  ·  Collector Integrity Verified</text>
+<!-- volatile order badge -->
+<rect x="12" y="170" width="976" height="16" rx="3" fill="#dbeafe" stroke="#3b82f6" stroke-width="0.5"/>
+<text x="488" y="178" text-anchor="middle" dominant-baseline="central" style="font-size:8px;font-weight:700;fill:#1e40af;">RFC 3227 ORDER →  ① RAM  ②  Processes  ③  Network State  ④  Disk  ·  Collector SHA-256 verified before execution  ·  RFC 3161 timestamp at acquisition</text>
+
+<rect x="12"  y="190" width="183" height="68" rx="6" class="b-blue" filter="url(#shadow)"/>
+<text x="103" y="212" text-anchor="middle" dominant-baseline="central" class="t-boxh h-blue">Windows</text>
+<text x="103" y="228" text-anchor="middle" dominant-baseline="central" class="t-boxs s-blue">Event Logs · Registry · Prefetch</text>
+<text x="103" y="243" text-anchor="middle" dominant-baseline="central" class="t-boxs s-blue">VSS Shadow · Artefacts</text>
+
+<rect x="203" y="190" width="183" height="68" rx="6" class="b-blue" filter="url(#shadow)"/>
+<text x="294" y="212" text-anchor="middle" dominant-baseline="central" class="t-boxh h-blue">Linux</text>
+<text x="294" y="228" text-anchor="middle" dominant-baseline="central" class="t-boxs s-blue">System Logs · Auth · Kernel</text>
+<text x="294" y="243" text-anchor="middle" dominant-baseline="central" class="t-boxs s-blue">Cron · Journal</text>
+
+<rect x="394" y="190" width="183" height="68" rx="6" class="b-blue" filter="url(#shadow)"/>
+<text x="485" y="212" text-anchor="middle" dominant-baseline="central" class="t-boxh h-blue">macOS</text>
+<text x="485" y="228" text-anchor="middle" dominant-baseline="central" class="t-boxs s-blue">Unified Logs · FSEvents · TCC</text>
+<text x="485" y="243" text-anchor="middle" dominant-baseline="central" class="t-boxs s-blue">Spotlight · plist</text>
+
+<rect x="585" y="190" width="183" height="68" rx="6" class="b-blue" filter="url(#shadow)"/>
+<text x="676" y="207" text-anchor="middle" dominant-baseline="central" class="t-boxh h-blue">Cloud &amp; Network</text>
+<text x="676" y="222" text-anchor="middle" dominant-baseline="central" class="t-boxs s-blue">CloudTrail · GCP · Azure AD</text>
+<text x="676" y="237" text-anchor="middle" dominant-baseline="central" class="t-boxs s-blue">K8s Audit · PCAP · DNS</text>
+<text x="676" y="252" text-anchor="middle" dominant-baseline="central" class="t-boxs s-blue">NetFlow · Firewall</text>
+
+<rect x="776" y="190" width="212" height="68" rx="6" class="b-blue" filter="url(#shadow)"/>
+<text x="882" y="207" text-anchor="middle" dominant-baseline="central" class="t-boxh h-blue">Mobile &amp; Browser</text>
+<text x="882" y="222" text-anchor="middle" dominant-baseline="central" class="t-boxs s-blue">iOS · Android · MDM logs</text>
+<text x="882" y="237" text-anchor="middle" dominant-baseline="central" class="t-boxs s-blue">Browser history · Extensions</text>
+<text x="882" y="252" text-anchor="middle" dominant-baseline="central" class="t-boxs s-blue">Web storage · Credentials</text>
+
+<!-- error + retry -->
+<line x1="988" y1="224" x2="998" y2="224" class="l-err" marker-end="url(#ae)"/>
+
+<line x1="488" y1="260" x2="488" y2="276" class="l-flow" marker-end="url(#a)"/>
+
+<!-- ══════════════════════════════════════════
+     LAYER 2 — STAGING
+══════════════════════════════════════════ -->
+<text x="12" y="290" class="t-layer">02  Secure Staging  —  AES-256 at Rest  ·  Access Logged  ·  Classification Enforced  ·  Retention Policy  ·  Integrity Re-verification Schedule</text>
+
+<rect x="12" y="294" width="976" height="62" rx="6" class="b-slate" filter="url(#shadow)"/>
+<text x="488" y="312" text-anchor="middle" dominant-baseline="central" class="t-boxh h-slate">Structured Case Directory  —  Isolated per Case-ID  ·  AES-256 Encrypted at Rest</text>
+
+<rect x="22"  y="324" width="176" height="24" rx="4" fill="#dbeafe" stroke="#3b82f6" stroke-width="0.5"/>
+<text x="110" y="336" text-anchor="middle" dominant-baseline="central" style="font-size:8px;font-weight:600;fill:#1e40af;">Standard Evidence</text>
+
+<rect x="206" y="324" width="176" height="24" rx="4" fill="#fef3c7" stroke="#d97706" stroke-width="0.5"/>
+<text x="294" y="336" text-anchor="middle" dominant-baseline="central" style="font-size:8px;font-weight:600;fill:#92400e;">PII-Adjacent · Restricted</text>
+
+<rect x="390" y="324" width="176" height="24" rx="4" fill="#fce7f3" stroke="#db2777" stroke-width="0.5"/>
+<text x="478" y="336" text-anchor="middle" dominant-baseline="central" style="font-size:8px;font-weight:600;fill:#9d174d;">Legal Hold · Privileged</text>
+
+<rect x="574" y="324" width="200" height="24" rx="4" fill="#f0fdf4" stroke="#16a34a" stroke-width="0.5"/>
+<text x="674" y="336" text-anchor="middle" dominant-baseline="central" style="font-size:8px;font-weight:600;fill:#14532d;">SHA-256 Manifest · Re-hashed on write · Periodic sweep</text>
+
+<rect x="782" y="324" width="196" height="24" rx="4" fill="#fdf4ff" stroke="#a21caf" stroke-width="0.5"/>
+<text x="880" y="336" text-anchor="middle" dominant-baseline="central" style="font-size:8px;font-weight:600;fill:#4a044e;">FS Access Log · Retention Policy · Recovery Snapshot</text>
+
+<line x1="488" y1="358" x2="488" y2="374" class="l-flow" marker-end="url(#a)"/>
+
+<!-- ══════════════════════════════════════════
+     LAYER 3 — MCP SERVER
+══════════════════════════════════════════ -->
+<text x="12" y="388" class="t-layer">03  MCP Forensic Tool Server  —  RBAC · HMAC Signed · seccomp Sandboxed · Tool Versioned · Rate Limited · Zero-Egress Network</text>
+
+<rect x="12" y="392" width="976" height="252" rx="8" class="b-green" filter="url(#shadow)"/>
+<text x="488" y="410" text-anchor="middle" dominant-baseline="central" style="font-size:10.5px;font-weight:800;fill:#14532d;">dfir-hawk-mcp-server  ·  Each tool: isolated subprocess  ·  seccomp / gVisor sandbox  ·  Tool version pinned per case  ·  HMAC per message</text>
+
+<!-- security strip inside MCP -->
+<rect x="24" y="418" width="952" height="14" rx="3" fill="#dcfce7" stroke="#15803d" stroke-width="0.5"/>
+<text x="500" y="425" text-anchor="middle" dominant-baseline="central" style="font-size:7.5px;font-weight:700;fill:#14532d;">Input sanitisation · Path-traversal guard · File-size cap + chunked ingestion · Short-lived case-scoped tokens · Token revocation · Inter-tool data isolation · Zero outbound network</text>
+
+<!-- GROUP 1: Platform Parsers -->
+<text x="26" y="444" class="t-grp h-blue">Platform Parsers</text>
+<rect x="24"  y="448" width="108" height="58" rx="5" class="b-tool"/>
+<text x="78"  y="468" text-anchor="middle" dominant-baseline="central" class="t-boxh h-green">parse_evtx</text>
+<text x="78"  y="484" text-anchor="middle" dominant-baseline="central" class="t-boxs s-green">Windows</text>
+
+<rect x="140" y="448" width="108" height="58" rx="5" class="b-tool"/>
+<text x="194" y="468" text-anchor="middle" dominant-baseline="central" class="t-boxh h-green">parse_syslog</text>
+<text x="194" y="484" text-anchor="middle" dominant-baseline="central" class="t-boxs s-green">Linux</text>
+
+<rect x="256" y="448" width="108" height="58" rx="5" class="b-tool"/>
+<text x="310" y="468" text-anchor="middle" dominant-baseline="central" class="t-boxh h-green">parse_macos</text>
+<text x="310" y="484" text-anchor="middle" dominant-baseline="central" class="t-boxs s-green">macOS</text>
+
+<rect x="372" y="448" width="108" height="58" rx="5" class="b-tool"/>
+<text x="426" y="468" text-anchor="middle" dominant-baseline="central" class="t-boxh h-green">parse_cloud</text>
+<text x="426" y="484" text-anchor="middle" dominant-baseline="central" class="t-boxs s-green">Cloud Audit</text>
+
+<rect x="488" y="448" width="108" height="58" rx="5" class="b-tool"/>
+<text x="542" y="468" text-anchor="middle" dominant-baseline="central" class="t-boxh h-green">parse_mobile</text>
+<text x="542" y="484" text-anchor="middle" dominant-baseline="central" class="t-boxs s-green">iOS · Android</text>
+
+<rect x="604" y="448" width="108" height="58" rx="5" class="b-tool"/>
+<text x="658" y="468" text-anchor="middle" dominant-baseline="central" class="t-boxh h-green">parse_browser</text>
+<text x="658" y="484" text-anchor="middle" dominant-baseline="central" class="t-boxs s-green">History · Extensions</text>
+
+<rect x="720" y="448" width="116" height="58" rx="5" class="b-tool"/>
+<text x="778" y="468" text-anchor="middle" dominant-baseline="central" class="t-boxh h-green">parse_container</text>
+<text x="778" y="484" text-anchor="middle" dominant-baseline="central" class="t-boxs s-green">Image · Layer diff</text>
+
+<rect x="844" y="448" width="130" height="58" rx="5" class="b-tool"/>
+<text x="909" y="462" text-anchor="middle" dominant-baseline="central" class="t-boxh h-green">analyze_email</text>
+<text x="909" y="478" text-anchor="middle" dominant-baseline="central" class="t-boxs s-green">Headers · Body</text>
+<text x="909" y="494" text-anchor="middle" dominant-baseline="central" class="t-boxs s-green">Attachments</text>
+
+<!-- GROUP 2: Intelligence + Network -->
+<text x="26" y="522" class="t-grp" style="fill:#b45309;">Cross-Platform Intelligence</text>
+<rect x="24"  y="526" width="150" height="58" rx="5" class="b-tool"/>
+<text x="99"  y="546" text-anchor="middle" dominant-baseline="central" class="t-boxh h-green">build_timeline</text>
+<text x="99"  y="562" text-anchor="middle" dominant-baseline="central" class="t-boxs s-green">Cross-Source UTC</text>
+
+<rect x="182" y="526" width="150" height="58" rx="5" class="b-tool"/>
+<text x="257" y="546" text-anchor="middle" dominant-baseline="central" class="t-boxh h-green">detect_lateral</text>
+<text x="257" y="562" text-anchor="middle" dominant-baseline="central" class="t-boxs s-green">Lateral Movement</text>
+
+<rect x="340" y="526" width="150" height="58" rx="5" class="b-tool"/>
+<text x="415" y="546" text-anchor="middle" dominant-baseline="central" class="t-boxh h-green">check_persistence</text>
+<text x="415" y="562" text-anchor="middle" dominant-baseline="central" class="t-boxs s-green">Persistence Mechs</text>
+
+<rect x="498" y="526" width="150" height="58" rx="5" class="b-tool"/>
+<text x="573" y="546" text-anchor="middle" dominant-baseline="central" class="t-boxh h-green">scan_ioc</text>
+<text x="573" y="562" text-anchor="middle" dominant-baseline="central" class="t-boxs s-green">IOC · ATT&amp;CK Map</text>
+
+<text x="662" y="522" class="t-grp" style="fill:#0369a1;">Network Forensics</text>
+<rect x="660" y="526" width="148" height="58" rx="5" class="b-tool"/>
+<text x="734" y="546" text-anchor="middle" dominant-baseline="central" class="t-boxh h-green">parse_pcap</text>
+<text x="734" y="562" text-anchor="middle" dominant-baseline="central" class="t-boxs s-green">PCAP · NetFlow</text>
+
+<rect x="816" y="526" width="160" height="58" rx="5" class="b-tool"/>
+<text x="896" y="546" text-anchor="middle" dominant-baseline="central" class="t-boxh h-green">parse_dns</text>
+<text x="896" y="562" text-anchor="middle" dominant-baseline="central" class="t-boxs s-green">DNS · C2 Detection</text>
+
+<line x1="488" y1="646" x2="488" y2="662" class="l-flow" marker-end="url(#a)"/>
+
+<!-- ══════════════════════════════════════════
+     LAYER 3.5 — VECTOR / RAG
+══════════════════════════════════════════ -->
+<text x="12" y="676" class="t-layer">03.5  Vector Store + Anomaly Detection  —  RAG Context  ·  Embedding Freshness  ·  Clock Skew Detection</text>
+
+<rect x="12" y="680" width="976" height="52" rx="6" class="b-indigo" filter="url(#shadow)"/>
+<text x="300" y="698" text-anchor="middle" dominant-baseline="central" class="t-boxh h-indigo">RAG Vector Store</text>
+<text x="300" y="714" text-anchor="middle" dominant-baseline="central" class="t-boxs s-indigo">ChromaDB / Qdrant  ·  Evidence embedded on ingest  ·  Relevant chunks retrieved per query  ·  Re-indexed on case change</text>
+
+<rect x="612" y="688" width="2" height="36" fill="#c7d2fe"/>
+<text x="730" y="698" text-anchor="middle" dominant-baseline="central" class="t-boxh h-indigo">Anomaly Detection</text>
+<text x="730" y="714" text-anchor="middle" dominant-baseline="central" class="t-boxs s-indigo">Statistical outlier detection  ·  Rare process trees  ·  Clock skew flagged  ·  Embedding staleness alert</text>
+
+<rect x="880" y="688" width="2" height="36" fill="#c7d2fe"/>
+<text x="946" y="698" text-anchor="middle" dominant-baseline="central" class="t-boxh h-indigo">Cross-Case</text>
+<text x="946" y="714" text-anchor="middle" dominant-baseline="central" class="t-boxs s-indigo">Opt-in pattern match</text>
+
+<line x1="488" y1="734" x2="488" y2="750" class="l-flow" marker-end="url(#a)"/>
+
+<!-- ══════════════════════════════════════════
+     LAYER 4 — DLP + AI
+══════════════════════════════════════════ -->
+<text x="12" y="764" class="t-layer">04  Data Protection + AI Inference  —  Hard-Fail DLP  ·  Prompt Injection Guard  ·  Structured Output  ·  Confidence Scoring  ·  Legal Safety Filter</text>
+
+<!-- DLP strip -->
+<rect x="12" y="768" width="976" height="28" rx="5" class="b-amber" filter="url(#shadow)"/>
+<text x="488" y="782" text-anchor="middle" dominant-baseline="central" style="font-size:9.5px;font-weight:700;fill:#78350f;">DLP Filter  ·  Hard Fail  ·  PII / Hostname / IP Scrub  ·  Aborts on Exception  ·  Prompt Injection Guard applied post-scrub  ·  Jurisdiction policy check</text>
+<line x1="990" y1="782" x2="1000" y2="782" class="l-err" marker-end="url(#ae)"/>
+
+<!-- Ollama -->
+<rect x="12"  y="806" width="478" height="96" rx="6" class="b-violet" filter="url(#shadow)"/>
+<text x="251" y="828" text-anchor="middle" dominant-baseline="central" class="t-boxh h-violet">Ollama  ·  Local  (Primary)</text>
+<text x="251" y="845" text-anchor="middle" dominant-baseline="central" class="t-boxs s-violet">Air-Gap Safe  ·  FIPS 140-2  ·  No data leaves network</text>
+<text x="251" y="860" text-anchor="middle" dominant-baseline="central" class="t-boxs s-violet">Model weights SHA-256 verified  ·  Version pinned per case  ·  Drift detection</text>
+<text x="251" y="875" text-anchor="middle" dominant-baseline="central" class="t-boxs s-violet">CPU affinity + timing normalisation  ·  Fine-tuning pipeline via feedback</text>
+<rect x="20" y="886" width="464" height="12" rx="3" fill="#ede9fe" stroke="#7c3aed" stroke-width="0.4"/>
+<text x="252" y="892" text-anchor="middle" dominant-baseline="central" style="font-size:7.5px;font-weight:700;fill:#4c1d95;">Default for all IR work  ·  Multi-model consensus on high-severity findings</text>
+
+<!-- Cloud -->
+<rect x="502" y="806" width="486" height="96" rx="6" class="b-violet2" filter="url(#shadow)"/>
+<text x="745" y="828" text-anchor="middle" dominant-baseline="central" class="t-boxh h-violet">Claude / Cloud  (Fallback)</text>
+<text x="745" y="845" text-anchor="middle" dominant-baseline="central" class="t-boxs s-violet">Post-DLP only  ·  Explicit analyst opt-in  ·  Short-lived session token</text>
+<text x="745" y="860" text-anchor="middle" dominant-baseline="central" class="t-boxs s-violet">Token budget + chunking enforced  ·  Logged to audit trail</text>
+<text x="745" y="875" text-anchor="middle" dominant-baseline="central" style="font-size:9px;font-weight:600;fill:#92400e;">⚠  Sensitive / cross-border engagements: Ollama only</text>
+<rect x="510" y="886" width="470" height="12" rx="3" fill="#ede9fe" stroke="#7c3aed" stroke-width="0.4"/>
+<text x="745" y="892" text-anchor="middle" dominant-baseline="central" style="font-size:7.5px;font-weight:700;fill:#4c1d95;">Adversarial prompt red-teaming  ·  Active learning: uncertain findings surfaced first</text>
+
+<!-- AI output pipeline -->
+<rect x="12" y="912" width="976" height="28" rx="5" fill="#dcfce7" stroke="#15803d" stroke-width="0.7"/>
+<text x="488" y="926" text-anchor="middle" dominant-baseline="central" style="font-size:9px;font-weight:700;fill:#14532d;">AI Output Pipeline  ·  Pydantic schema enforcement  ·  Confidence score (0–1) per finding  ·  Hallucination check: every IOC cross-referenced  ·  Legal safety filter: no attribution without evidence threshold  ·  Unvalidated findings flagged</text>
+
+<line x1="488" y1="942" x2="488" y2="958" class="l-flow" marker-end="url(#a)"/>
+
+<!-- ══════════════════════════════════════════
+     LAYER 5 — ANALYSIS
+══════════════════════════════════════════ -->
+<text x="12" y="972" class="t-layer">05  Forensic Analysis  —  Deconfliction  ·  IOC Enrichment  ·  ATT&amp;CK Scoring  ·  Hypothesis Engine  ·  Deception Detection  ·  Playbook Engine</text>
+
+<rect x="12"  y="976" width="182" height="62" rx="6" class="b-orange" filter="url(#shadow)"/>
+<text x="103" y="998" text-anchor="middle" dominant-baseline="central" class="t-boxh h-orange">Timeline</text>
+<text x="103" y="1014" text-anchor="middle" dominant-baseline="central" class="t-boxs s-orange">Event Reconstruction</text>
+<text x="103" y="1029" text-anchor="middle" dominant-baseline="central" style="font-size:8px;fill:#c2410c;">Clock skew uncertainty window</text>
+
+<rect x="202" y="976" width="182" height="62" rx="6" class="b-orange" filter="url(#shadow)"/>
+<text x="293" y="998" text-anchor="middle" dominant-baseline="central" class="t-boxh h-orange">Memory</text>
+<text x="293" y="1014" text-anchor="middle" dominant-baseline="central" class="t-boxs s-orange">Volatility3 Analysis</text>
+<text x="293" y="1029" text-anchor="middle" dominant-baseline="central" style="font-size:8px;fill:#c2410c;">Cross-module deconfliction</text>
+
+<rect x="392" y="976" width="182" height="62" rx="6" class="b-orange" filter="url(#shadow)"/>
+<text x="483" y="998" text-anchor="middle" dominant-baseline="central" class="t-boxh h-orange">Threat Hunt</text>
+<text x="483" y="1014" text-anchor="middle" dominant-baseline="central" class="t-boxs s-orange">YARA · Sigma</text>
+<text x="483" y="1029" text-anchor="middle" dominant-baseline="central" style="font-size:8px;fill:#c2410c;">ATT&amp;CK weighted confidence</text>
+
+<rect x="582" y="976" width="182" height="62" rx="6" class="b-orange" filter="url(#shadow)"/>
+<text x="673" y="998" text-anchor="middle" dominant-baseline="central" class="t-boxh h-orange">EDR Triage</text>
+<text x="673" y="1014" text-anchor="middle" dominant-baseline="central" class="t-boxs s-orange">CrowdStrike Falcon</text>
+<text x="673" y="1029" text-anchor="middle" dominant-baseline="central" style="font-size:8px;fill:#c2410c;">Scope creep detection</text>
+
+<rect x="772" y="976" width="216" height="62" rx="6" class="b-orange" filter="url(#shadow)"/>
+<text x="880" y="993" text-anchor="middle" dominant-baseline="central" class="t-boxh h-orange">Hypothesis + Deception</text>
+<text x="880" y="1009" text-anchor="middle" dominant-baseline="central" class="t-boxs s-orange">Ranked attack paths</text>
+<text x="880" y="1024" text-anchor="middle" dominant-baseline="central" style="font-size:8px;fill:#c2410c;">Artefact authenticity cross-validation</text>
+
+<!-- enrichment bar -->
+<rect x="12" y="1048" width="976" height="26" rx="5" fill="#fef9ee" stroke="#f59e0b" stroke-width="0.7"/>
+<text x="160" y="1061" text-anchor="middle" dominant-baseline="central" style="font-size:9px;font-weight:700;fill:#78350f;">IOC Enrichment</text>
+<line x1="210" y1="1061" x2="228" y2="1061" stroke="#f59e0b" stroke-width="1.2" stroke-dasharray="3 3" marker-end="url(#ao)"/>
+<text x="350" y="1061" text-anchor="middle" dominant-baseline="central" style="font-size:8.5px;fill:#92400e;">VirusTotal  ·  Shodan  ·  MISP</text>
+<rect x="470" y="1053" width="1" height="14" fill="#fcd34d"/>
+<text x="580" y="1061" text-anchor="middle" dominant-baseline="central" style="font-size:9px;font-weight:700;fill:#78350f;">IR Playbook Engine</text>
+<text x="760" y="1061" text-anchor="middle" dominant-baseline="central" style="font-size:8.5px;fill:#92400e;">Ransomware · BEC · Cloud Breach playbooks  ·  Auto-triggers on detection</text>
+
+<!-- feedback path right -->
+<path d="M988 1220 Q998 1220 998 1020 Q998 998 988 998" class="l-feed" marker-end="url(#at)"/>
+<text x="998" y="1110" style="font-size:7px;fill:#0d9488;font-weight:700;writing-mode:tb;letter-spacing:0.05em;">Rule Tuning · Fine-tuning Feedback</text>
+
+<line x1="488" y1="1076" x2="488" y2="1092" class="l-flow" marker-end="url(#a)"/>
+
+<!-- ══════════════════════════════════════════
+     LAYER 6 — REPORTING
+══════════════════════════════════════════ -->
+<text x="12" y="1106" class="t-layer">06  Reporting  —  STIX 2.1  ·  Report Versioning  ·  Redaction  ·  Regulatory Outputs  ·  Explainability  ·  Witness Integration  ·  Case State</text>
+
+<!-- gate -->
+<rect x="12" y="1110" width="976" height="26" rx="5" class="b-gate" filter="url(#shadow)"/>
+<text x="488" y="1123" text-anchor="middle" dominant-baseline="central" class="h-gate" style="font-size:9.5px;">Analyst Review Gate  —  Human Sign-Off Required  ·  Confidence scores visible  ·  Corrections: {tool · finding_id · correction · analyst_id · timestamp}</text>
+
+<!-- 5 output types -->
+<rect x="12"  y="1146" width="182" height="58" rx="6" class="b-red" filter="url(#shadow)"/>
+<text x="103" y="1165" text-anchor="middle" dominant-baseline="central" class="t-boxh h-red">Executive Summary</text>
+<text x="103" y="1181" text-anchor="middle" dominant-baseline="central" class="t-boxs s-red">AI-Drafted · Reviewed</text>
+<text x="103" y="1196" text-anchor="middle" dominant-baseline="central" style="font-size:8px;fill:#b91c1c;">Audience redaction applied</text>
+
+<rect x="202" y="1146" width="182" height="58" rx="6" class="b-red" filter="url(#shadow)"/>
+<text x="293" y="1165" text-anchor="middle" dominant-baseline="central" class="t-boxh h-red">Technical Report</text>
+<text x="293" y="1181" text-anchor="middle" dominant-baseline="central" class="t-boxs s-red">IOC List · Kill-Chain</text>
+<text x="293" y="1196" text-anchor="middle" dominant-baseline="central" style="font-size:8px;fill:#b91c1c;">Evidence citation per finding</text>
+
+<rect x="392" y="1146" width="182" height="58" rx="6" class="b-red" filter="url(#shadow)"/>
+<text x="483" y="1165" text-anchor="middle" dominant-baseline="central" class="t-boxh h-red">Court-Ready Package</text>
+<text x="483" y="1181" text-anchor="middle" dominant-baseline="central" class="t-boxs s-red">SHA-256 · Chain of Custody</text>
+<text x="483" y="1196" text-anchor="middle" dominant-baseline="central" style="font-size:8px;fill:#b91c1c;">Versioned · Signed · Witness notes</text>
+
+<rect x="582" y="1146" width="192" height="58" rx="6" class="b-red" filter="url(#shadow)"/>
+<text x="678" y="1160" text-anchor="middle" dominant-baseline="central" class="t-boxh h-red">Regulatory Output</text>
+<text x="678" y="1176" text-anchor="middle" dominant-baseline="central" class="t-boxs s-red">GDPR DPA · NIS2</text>
+<text x="678" y="1190" text-anchor="middle" dominant-baseline="central" style="font-size:8px;fill:#b91c1c;">SEC 8-K · ICO · Structured schema</text>
+
+<rect x="782" y="1146" width="206" height="58" rx="6" class="b-teal" filter="url(#shadow)"/>
+<text x="885" y="1165" text-anchor="middle" dominant-baseline="central" class="t-boxh h-teal">STIX 2.1 / TAXII Export</text>
+<text x="885" y="1181" text-anchor="middle" dominant-baseline="central" class="t-boxs s-teal">IOC sharing · Ticketing</text>
+<text x="885" y="1196" text-anchor="middle" dominant-baseline="central" style="font-size:8px;fill:#0d9488;">JIRA · ServiceNow · Notify</text>
+
+<!-- feedback strip -->
+<rect x="12" y="1214" width="976" height="24" rx="5" class="b-teal"/>
+<text x="488" y="1226" text-anchor="middle" dominant-baseline="central" style="font-size:8.5px;font-weight:700;fill:#134e4a;">Analyst Feedback Loop  ·  Corrections → YARA / Sigma / Fine-tuning  ·  Closed-loop confirmation required before case close  ·  Case state: created → collecting → analysing → review → closed → archived</text>
+
+<line x1="488" y1="1240" x2="488" y2="1256" class="l-flow" marker-end="url(#a)"/>
+
+<!-- ══════════════════════════════════════════
+     LAYER 7 — DEPLOYMENT
+══════════════════════════════════════════ -->
+<text x="12" y="1270" class="t-layer">07  Deployment  —  Health Monitoring  ·  Resource Limits  ·  Secure Updates  ·  Distributed Operation  ·  Disaster Recovery</text>
+
+<rect x="12"  y="1274" width="296" height="58" rx="6" class="b-slate" filter="url(#shadow)"/>
+<text x="160" y="1294" text-anchor="middle" dominant-baseline="central" class="t-boxh h-slate">Local Workstation</text>
+<text x="160" y="1310" text-anchor="middle" dominant-baseline="central" class="t-boxs s-slate">Python · Claude Desktop</text>
+<text x="160" y="1324" text-anchor="middle" dominant-baseline="central" style="font-size:8px;fill:#64748b;">Watchdog · CPU/RAM cap</text>
+
+<rect x="316" y="1274" width="296" height="58" rx="6" class="b-slate" filter="url(#shadow)"/>
+<text x="464" y="1294" text-anchor="middle" dominant-baseline="central" class="t-boxh h-slate">Container  ·  Air-Gapped</text>
+<text x="464" y="1310" text-anchor="middle" dominant-baseline="central" class="t-boxs s-slate">Docker · FIPS 140-2 · No Egress</text>
+<text x="464" y="1324" text-anchor="middle" dominant-baseline="central" style="font-size:8px;fill:#64748b;">Health endpoint · cgroup limits · Signed offline updates</text>
+
+<rect x="620" y="1274" width="368" height="58" rx="6" class="b-slate" filter="url(#shadow)"/>
+<text x="804" y="1294" text-anchor="middle" dominant-baseline="central" class="t-boxh h-slate">Distributed  /  Enterprise</text>
+<text x="804" y="1310" text-anchor="middle" dominant-baseline="central" class="t-boxs s-slate">Multi-node · Job queue · Parallel analysis across nodes</text>
+<text x="804" y="1324" text-anchor="middle" dominant-baseline="central" style="font-size:8px;fill:#64748b;">Case state snapshots · Evidence backup · DR recovery runbook</text>
+
+<!-- ══════════════════════════════════════════
+     FOOTER
+══════════════════════════════════════════ -->
+<rect x="0" y="1348" width="1000" height="52" fill="#0f172a"/>
+<text x="488" y="1366" text-anchor="middle" style="font-size:9.5px;fill:#60a5fa;font-weight:700;letter-spacing:0.02em;">DFIR Hawk v1.0</text>
+<text x="488" y="1384" text-anchor="middle" style="font-size:8px;fill:#475569;">RFC 3227 · RFC 3161 · AES-256 · FIPS 140-2 · STIX 2.1 · MITRE ATT&amp;CK v15 · WORM audit · seccomp · HMAC · RAG · Vault · Pydantic · Fine-tuning · Playbooks · Regulatory outputs</text>
+
+</svg>
