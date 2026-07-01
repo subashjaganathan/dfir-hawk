@@ -4,44 +4,45 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%2010%2F11%2FServer-0078D6)](#)
 
-**DFIR Hawk** is an open-source, offline-first incident-response platform. Its
-north-star architecture — an AI-assisted, MCP-driven, cross-platform DFIR
-pipeline with explainable triage, RAG, DLP, and court-ready reporting — is in
-[`Docs/architecture.svg`](Docs/architecture.svg).
+**DFIR Hawk** is an open-source, offline-first incident-response platform. **This
+repository is where the platform is built** — layer by layer — against the
+reference architecture in [`Docs/architecture.svg`](Docs/architecture.svg): an
+AI-assisted, MCP-driven, cross-platform DFIR pipeline with explainable triage,
+RAG, hard-fail DLP, local-first AI, and court-ready reporting.
 
-The **foundation shipping today** (this repo) is an enterprise-grade Windows
-triage engine: a dependency-free PowerShell **collector** that produces a sealed
-`.hawk` evidence session, and a .NET 8 **analyzer** (`hawk.exe`) that imports
-it, scores artifacts with a false-positive-resistant Malware Risk Index (MRI),
-parses raw forensic artifacts (EVTX/prefetch/shimcache/amcache/`$MFT`/`$UsnJrnl`/
-SRUM), runs an optional Volatility3 memory hand-off, matches IOCs, tags findings
-with MITRE ATT&CK, and produces an interactive UI and a self-contained HTML
-report.
+### Available now — Windows collection & analysis engine (Component 1)
 
-> Extracted from `windows-dfir-toolkit/HawkSuite` into its own repo. The core
-> tool is production-track; the wider platform in the diagram is the roadmap.
+A dependency-free PowerShell **collector** that produces a sealed `.hawk`
+evidence session, and a .NET 8 **analyzer** (`hawk.exe`) that imports it, scores
+artifacts with a false-positive-resistant Malware Risk Index (MRI), parses raw
+forensic artifacts (EVTX/prefetch/shimcache/amcache/`$MFT`/`$UsnJrnl`/SRUM), runs
+an optional Volatility3 memory hand-off, matches IOCs, tags findings with MITRE
+ATT&CK, and produces an interactive UI and a self-contained HTML report. Runs on
+**Windows 7 SP1 → Windows 11 / Server 2025** — an original, clean-room
+implementation (known-good whitelist built from NIST NSRL).
 
-## Architecture (north star)
+The remaining layers of the architecture are the roadmap, developed here.
+
+## Platform architecture
+
+The diagram is the blueprint we build against — every part of this repo maps to
+one of its layers. The table tracks what is implemented versus planned.
 
 ![DFIR Hawk architecture](Docs/architecture.svg)
 
-**What's built today vs. the diagram:**
+| Layer | In the architecture | Status here |
+|-------|---------------------|-------------|
+| 01 Collection | Win/Linux/macOS/Cloud/Mobile, RFC 3227 order | ✅ **Windows** (53 modules, RFC 3227); other platforms planned |
+| 02 Staging | Encrypted, classified case directory | ◐ sealed, hash-verified `.hawk` (encryption/classification planned) |
+| 03 MCP tool server | Sandboxed forensic MCP tools for AI | ○ planned (parsers exist as analyzer libraries today) |
+| 03.5 RAG / anomaly | Vector store, outlier detection | ○ planned |
+| 04 DLP + AI | Local-first (Ollama) / cloud fallback, hard-fail DLP | ○ planned |
+| 05 Analysis | Timeline, memory, threat-hunt, MRI, ATT&CK | ✅ MRI + ATT&CK findings + Volatility3 memory; YARA/Sigma planned |
+| 06 Reporting | STIX 2.1, court-ready, regulatory, exec summary | ◐ self-contained HTML report; STIX/regulatory planned |
+| 07 Deployment | Local / air-gapped container / distributed | ◐ single-file + folder collector; container/distributed planned |
+| Perimeter | Auth, Vault, WORM audit, RBAC, SBOM | ○ planned |
 
-| Layer | Vision (diagram) | Status in this repo |
-|-------|------------------|---------------------|
-| 01 Collection | Win/Linux/macOS/Cloud/Mobile, RFC 3227 order | ✅ **Windows** (53 modules, RFC 3227); others roadmap |
-| 02 Staging | Encrypted, classified case dir | ◐ sealed hash-verified `.hawk` (encryption/classification roadmap) |
-| 03 MCP tool server | Sandboxed forensic MCP tools for AI | ○ roadmap (parsers exist as analyzer libs today) |
-| 03.5 RAG / anomaly | Vector store, outlier detection | ○ roadmap |
-| 04 DLP + AI | Ollama-primary / Claude-fallback, DLP | ○ roadmap |
-| 05 Analysis | Timeline, memory, threat-hunt, MRI, ATT&CK | ✅ MRI + ATT&CK findings + Volatility3 memory hand-off; YARA/Sigma roadmap |
-| 06 Reporting | STIX, court-ready, regulatory, exec | ◐ self-contained HTML report; STIX/regulatory roadmap |
-| 07 Deployment | Local / air-gapped container / distributed | ◐ single-file + folder collector; container/distributed roadmap |
-| Perimeter | Auth, Vault, WORM, RBAC, SBOM | ○ roadmap |
-
-A modern, open-source Windows triage-and-analysis platform with an original,
-clean-room implementation; the known-good whitelist is built from NIST NSRL.
-Runs on **Windows 7 SP1 → Windows 11 / Server 2025**.
+Legend: ✅ implemented · ◐ partial · ○ planned
 
 ---
 
@@ -64,7 +65,7 @@ handful of low/medium items — not a screen of red.
 
 ---
 
-## Architecture
+## Windows engine — how it works (Component 1)
 
 ```
  TARGET HOST                          ANALYST WORKSTATION
@@ -220,10 +221,18 @@ ATT&CK-tagged finding:
 
 Volatility3 is not bundled; with none present the step logs a note and skips.
 
-## Not yet implemented (roadmap)
+## Roadmap — building the rest of the platform here
+Near-term, within the Windows engine:
 - **YARA / Sigma scanning**; IAT/EAT/inline API-hook detection (vol3 core lacks it).
+- **Exports** — CSV / JSON / Timeline-Explorer + MITRE ATT&CK Navigator layer.
 - **NSRL whitelist data** — `hawk whitelist build` + `Scripts\Get-NsrlWhitelist.ps1`
   are ready; load a NIST NSRL RDS set to cut residual false positives.
+
+Platform layers (per the architecture table above), in rough order: encrypted/
+classified staging → MCP forensic-tool server → RAG + anomaly detection →
+local-first AI with hard-fail DLP → STIX 2.1 / regulatory / court-ready
+reporting → cross-platform collection (Linux/macOS/Cloud/Mobile) → deployment
+(air-gapped container / distributed) and the security perimeter.
 
 > Note: the `$MFT`/`$UsnJrnl`/**SRUM (ESE)** parsers are implemented
 > (SRUM via ManagedEsent) and unit/synthetic-validated; full validation on real
