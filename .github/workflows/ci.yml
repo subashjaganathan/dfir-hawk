@@ -1,0 +1,23 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+
+jobs:
+  build-and-test:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      # Full suite under Windows PowerShell 5.1 (the collector's target runtime):
+      # parse-lint, analyzer build, collector modules, raw parsers, self-test.
+      - name: Run all tests
+        shell: powershell
+        run: .\test\Run-AllTests.ps1

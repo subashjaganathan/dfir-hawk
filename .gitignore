@@ -1,0 +1,25 @@
+# Build output
+**/bin/
+**/obj/
+dist/
+*.user
+
+# Evidence / analysis artifacts (never commit real evidence)
+*.hawk
+*.hawk.sha256
+*.db
+*.db-wal
+*.db-shm
+*_analysis/
+*.raw
+physmem*.raw
+
+# Whitelist / large data
+nsrl.bloom
+Configuration/Whitelist/*.bloom
+
+# OS / editor
+.vs/
+.idea/
+Thumbs.db
+.DS_Store
