@@ -1,6 +1,6 @@
 ﻿<#
 .SYNOPSIS
-    Module: processes â€” running process inventory with full lineage.
+    Module: processes - running process inventory with full lineage.
     Reference implementation of the v2 module contract.
     Migrated from windows-dfir-toolkit Running_Processes.ps1 (analysis logic removed).
 #>

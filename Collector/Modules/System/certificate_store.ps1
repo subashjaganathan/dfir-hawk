@@ -1,6 +1,6 @@
 ﻿<#
 .SYNOPSIS
-    Module: certificate_store â€” certificates in LocalMachine Root/CA/My/
+    Module: certificate_store - certificates in LocalMachine Root/CA/My/
     TrustedPublisher stores. Raw collection only (no rogue-root/expiry
     verdicts). Migrated from windows-dfir-toolkit Certificates\Certificate_Store.ps1
     (analysis logic removed).

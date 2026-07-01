@@ -1,6 +1,6 @@
 ﻿<#
 .SYNOPSIS
-    Module: credential_artifacts â€” credential-related METADATA only.
+    Module: credential_artifacts - credential-related METADATA only.
     Migrated from windows-dfir-toolkit Credential_Artifacts.ps1 (analysis/notes removed).
     NEVER reads secret material: only settings, vault entry names, and key file COUNTS.
     Raw observations only.

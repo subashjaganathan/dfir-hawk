@@ -1,6 +1,6 @@
 ﻿<#
 .SYNOPSIS
-    Module: startup_folder â€” Startup-folder items for all users, with .lnk resolution.
+    Module: startup_folder - Startup-folder items for all users, with .lnk resolution.
     Migrated from windows-dfir-toolkit Startup_Folder.ps1 (analysis logic removed).
 #>
 param([Parameter(Mandatory)][string]$SessionRoot, $Config)

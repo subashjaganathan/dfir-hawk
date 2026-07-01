@@ -1,6 +1,6 @@
 ﻿<#
 .SYNOPSIS
-    Module: services â€” installed Windows services with binary identity.
+    Module: services - installed Windows services with binary identity.
     Migrated from windows-dfir-toolkit Windows_Services.ps1 (analysis logic removed).
 #>
 param([Parameter(Mandatory)][string]$SessionRoot, $Config)

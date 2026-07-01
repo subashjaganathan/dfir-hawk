@@ -1,6 +1,6 @@
 ﻿<#
 .SYNOPSIS
-    Module: scheduled_tasks â€” one record per task exec action, with binary identity.
+    Module: scheduled_tasks - one record per task exec action, with binary identity.
     Migrated from windows-dfir-toolkit Scheduled_Tasks.ps1 (analysis logic removed).
 #>
 param([Parameter(Mandatory)][string]$SessionRoot, $Config)

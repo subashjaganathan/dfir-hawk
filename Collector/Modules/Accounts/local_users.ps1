@@ -1,13 +1,13 @@
 ﻿<#
 .SYNOPSIS
-    Module: local_users â€” local accounts + group memberships.
+    Module: local_users - local accounts + group memberships.
     Migrated from windows-dfir-toolkit Local_Users_Groups.ps1 (analysis logic removed).
 #>
 param([Parameter(Mandatory)][string]$SessionRoot, $Config)
 
 Write-HawkLog 'local_users: collection started'
 
-# group â†’ members map in one pass (Win32_GroupUser is expensive; do it once)
+# group -> members map in one pass (Win32_GroupUser is expensive; do it once)
 $membership = @{}
 foreach ($gu in (Get-CimInstance Win32_GroupUser -ErrorAction SilentlyContinue)) {
     if ($gu.GroupComponent.Domain -ne $env:COMPUTERNAME) { continue }

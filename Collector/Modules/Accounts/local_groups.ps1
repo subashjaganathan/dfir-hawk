@@ -1,6 +1,6 @@
 ﻿<#
 .SYNOPSIS
-    Module: local_groups â€” local groups and their members (one record per group,member).
+    Module: local_groups - local groups and their members (one record per group,member).
     Migrated from windows-dfir-toolkit Local_Users_Groups.ps1 (group portion; analysis removed).
     Raw observations only.
 #>

@@ -1,6 +1,6 @@
 ﻿<#
 .SYNOPSIS
-    Module: registry_runkeys â€” autorun registry persistence locations, all users.
+    Module: registry_runkeys - autorun registry persistence locations, all users.
     Migrated from windows-dfir-toolkit Registry_RunKeys.ps1 (analysis logic removed).
     HKU enumeration covers every LOADED user hive, not just the collector's user.
 #>

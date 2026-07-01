@@ -1,6 +1,6 @@
 ﻿<#
 .SYNOPSIS
-    Module: av_edr_status â€” registered security products, Windows Defender
+    Module: av_edr_status - registered security products, Windows Defender
     runtime status, and Defender exclusions. Raw collection only (no scoring
     of exclusions or tamper state). Migrated from windows-dfir-toolkit
     DefenseEvasion\AV_EDR_Status.ps1 (analysis logic removed).
@@ -18,7 +18,7 @@ try {
         $records.Add([ordered]@{
             recordType            = 'securityProduct'
             displayName           = $av.displayName
-            productState          = [int]$av.productState        # raw int â€” analyzer decodes
+            productState          = [int]$av.productState        # raw int - analyzer decodes
             pathToSignedProductExe = $av.pathToSignedProductExe
             timestamp             = ConvertTo-HawkUtc $av.timestamp
         })
@@ -45,7 +45,7 @@ try {
     Write-HawkLog "av_edr_status: Get-MpComputerStatus unavailable ($($_.Exception.Message))" 'WARN'
 }
 
-# (b cont.) Defender exclusions â€” one record per path/extension/process.
+# (b cont.) Defender exclusions - one record per path/extension/process.
 try {
     $prefs = Get-MpPreference -ErrorAction Stop
     $exclusionMap = [ordered]@{

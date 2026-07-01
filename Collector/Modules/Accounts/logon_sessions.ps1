@@ -1,6 +1,6 @@
 ﻿<#
 .SYNOPSIS
-    Module: logon_sessions â€” active logon sessions with user mapping.
+    Module: logon_sessions - active logon sessions with user mapping.
     Migrated from windows-dfir-toolkit Logon_Sessions_Deep.ps1 (analysis logic removed).
 #>
 param([Parameter(Mandatory)][string]$SessionRoot, $Config)
@@ -12,7 +12,7 @@ $logonTypes = @{
     7='Unlock'; 8='NetworkCleartext'; 9='NewCredentials'; 10='RemoteInteractive'; 11='CachedInteractive'
 }
 
-# logonId â†’ user via association class
+# logonId -> user via association class
 $sessionUser = @{}
 foreach ($lu in (Get-CimInstance Win32_LoggedOnUser -ErrorAction SilentlyContinue)) {
     $logonId = $lu.Dependent.LogonId

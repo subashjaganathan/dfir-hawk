@@ -1,6 +1,6 @@
 ﻿<#
 .SYNOPSIS
-    Module: named_pipes â€” open named pipes (C2 framework default-profile detection
+    Module: named_pipes - open named pipes (C2 framework default-profile detection
     happens analyzer-side against Configuration/IOC/known-bad-handles.json).
     Migrated from windows-dfir-toolkit Named_Pipes.ps1 (analysis logic removed).
 #>

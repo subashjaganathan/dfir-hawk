@@ -1,6 +1,6 @@
 ﻿<#
 .SYNOPSIS
-    Module: patch_level â€” installed hotfixes + OS build summary.
+    Module: patch_level - installed hotfixes + OS build summary.
     Migrated from windows-dfir-toolkit Patch_Level.ps1 (WU COM history/pending/analysis removed).
     Raw observations only.
 #>

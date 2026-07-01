@@ -1,6 +1,6 @@
 ﻿<#
 .SYNOPSIS
-    Module: wmi_persistence â€” WMI event subscription persistence (T1546.003).
+    Module: wmi_persistence - WMI event subscription persistence (T1546.003).
     Migrated from windows-dfir-toolkit WMI_Persistence.ps1 (analysis logic removed).
 #>
 param([Parameter(Mandatory)][string]$SessionRoot, $Config)

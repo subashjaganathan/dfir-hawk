@@ -131,7 +131,7 @@
 <text x="12" y="166" class="t-layer">01  Evidence Collection  —  RFC 3227 Volatile Order  ·  RFC 3161 Trusted Timestamp  ·  Collector Integrity Verified</text>
 <!-- volatile order badge -->
 <rect x="12" y="170" width="976" height="16" rx="3" fill="#dbeafe" stroke="#3b82f6" stroke-width="0.5"/>
-<text x="488" y="178" text-anchor="middle" dominant-baseline="central" style="font-size:8px;font-weight:700;fill:#1e40af;">RFC 3227 ORDER →  ① RAM  ②  Processes  ③  Network State  ④  Disk  ·  Collector SHA-256 verified before execution  ·  RFC 3161 timestamp at acquisition</text>
+<text x="488" y="178" text-anchor="middle" dominant-baseline="central" style="font-size:8px;font-weight:700;fill:#1e40af;">RFC 3227 ORDER →  1 RAM  2  Processes  3  Network State  4  Disk  ·  Collector SHA-256 verified before execution  ·  RFC 3161 timestamp at acquisition</text>
 
 <rect x="12"  y="190" width="183" height="68" rx="6" class="b-blue" filter="url(#shadow)"/>
 <text x="103" y="212" text-anchor="middle" dominant-baseline="central" class="t-boxh h-blue">Windows</text>
@@ -309,7 +309,7 @@
 <text x="745" y="828" text-anchor="middle" dominant-baseline="central" class="t-boxh h-violet">Claude / Cloud  (Fallback)</text>
 <text x="745" y="845" text-anchor="middle" dominant-baseline="central" class="t-boxs s-violet">Post-DLP only  ·  Explicit analyst opt-in  ·  Short-lived session token</text>
 <text x="745" y="860" text-anchor="middle" dominant-baseline="central" class="t-boxs s-violet">Token budget + chunking enforced  ·  Logged to audit trail</text>
-<text x="745" y="875" text-anchor="middle" dominant-baseline="central" style="font-size:9px;font-weight:600;fill:#92400e;">⚠  Sensitive / cross-border engagements: Ollama only</text>
+<text x="745" y="875" text-anchor="middle" dominant-baseline="central" style="font-size:9px;font-weight:600;fill:#92400e;">Sensitive / cross-border engagements: Ollama only</text>
 <rect x="510" y="886" width="470" height="12" rx="3" fill="#ede9fe" stroke="#7c3aed" stroke-width="0.4"/>
 <text x="745" y="892" text-anchor="middle" dominant-baseline="central" style="font-size:7.5px;font-weight:700;fill:#4c1d95;">Adversarial prompt red-teaming  ·  Active learning: uncertain findings surfaced first</text>
 

@@ -1,6 +1,6 @@
 ﻿<#
 .SYNOPSIS
-    Module: network_connections â€” TCP connections + UDP endpoints with process correlation.
+    Module: network_connections - TCP connections + UDP endpoints with process correlation.
     Migrated from windows-dfir-toolkit Network_Connections.ps1 (analysis logic removed).
     Falls back to netstat parsing on hosts without the NetTCPIP module (Win7).
 #>
@@ -8,7 +8,7 @@ param([Parameter(Mandatory)][string]$SessionRoot, $Config)
 
 Write-HawkLog 'network_connections: collection started'
 
-# PID â†’ name/path lookup, one pass
+# PID -> name/path lookup, one pass
 $procs = @{}
 foreach ($p in (Get-CimInstance Win32_Process -ErrorAction SilentlyContinue)) {
     $procs[[int]$p.ProcessId] = @{ name = $p.Name; path = $p.ExecutablePath }

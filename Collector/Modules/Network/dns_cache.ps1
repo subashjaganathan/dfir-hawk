@@ -1,6 +1,6 @@
 ﻿<#
 .SYNOPSIS
-    Module: dns_cache â€” client DNS resolver cache.
+    Module: dns_cache - client DNS resolver cache.
     Migrated from windows-dfir-toolkit DNS_Cache.ps1. Fallback: ipconfig /displaydns.
 #>
 param([Parameter(Mandatory)][string]$SessionRoot, $Config)

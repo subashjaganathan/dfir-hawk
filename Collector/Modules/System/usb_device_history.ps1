@@ -1,6 +1,6 @@
 ﻿<#
 .SYNOPSIS
-    Module: usb_device_history â€” USBSTOR/USB device enumeration + mounted-device mappings.
+    Module: usb_device_history - USBSTOR/USB device enumeration + mounted-device mappings.
     Migrated from windows-dfir-toolkit USB_Device_History.ps1 (analysis/driver/WER logic removed).
     Read-only against HKLM. Raw observations only.
 #>
@@ -71,7 +71,7 @@ function Add-HawkEnumDevices {
 Add-HawkEnumDevices -RootKey 'HKLM:\SYSTEM\CurrentControlSet\Enum\USBSTOR' -DeviceClass 'USBSTOR' -Out $records
 Add-HawkEnumDevices -RootKey 'HKLM:\SYSTEM\CurrentControlSet\Enum\USB'     -DeviceClass 'USB'     -Out $records
 
-# Mounted volume mappings â€” decode binary data to a readable identifier.
+# Mounted volume mappings - decode binary data to a readable identifier.
 try {
     $mdKey = 'HKLM:\SYSTEM\MountedDevices'
     if (Test-Path $mdKey) {

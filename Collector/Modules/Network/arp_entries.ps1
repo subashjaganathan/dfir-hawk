@@ -1,6 +1,6 @@
 ﻿<#
 .SYNOPSIS
-    Module: arp_entries â€” ARP/neighbor cache (lateral-movement context).
+    Module: arp_entries - ARP/neighbor cache (lateral-movement context).
     Migrated from windows-dfir-toolkit ARP_Entries.ps1.
 #>
 param([Parameter(Mandatory)][string]$SessionRoot, $Config)
