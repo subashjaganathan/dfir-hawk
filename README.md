@@ -100,8 +100,15 @@ that sink naive "AI + forensics" designs:
 | The platform depending on the AI to work | Forensic tools also run as plain, deterministic CLIs - fully usable without the model |
 | Detection quality / drift | Versioned Sigma/YARA rules, false-positive management, and an evaluation harness (precision/recall vs. known cases) |
 | Overstated crypto claims | FIPS-validated crypto module (not a checkbox); honest about what is validated |
+| Noisy correlation across sources | Parsers normalize to a **common data model (OCSF)** + a **canonical entity-resolution** layer (host/user/IP unified) before analysis |
+| A feedback loop that silently degrades detections | **Governed** rule/model updates - analyst corrections are reviewed, approved, and rollback-able; never auto-applied |
+| Long-retention evidence + encryption keys | Keys live in the Vault and are **escrowed**; **legal hold overrides retention** (held cases are never auto-deleted) |
+| Nobody watching the platform | **Self-monitoring + alerting**: WORM-tamper detection, collector-failure and analysis-queue alerts |
+| Growing the tool safely | **Plugin SDK contract** for community parsers/playbooks (validated, sandboxed like the built-ins) |
+| Attribution is a legal hazard | The pipeline reports **evidence and TTPs, not threat-actor attribution** by default |
+| Unclear where untrusted data flows | **Trust boundaries** are enforced at each crossing (target -> staging -> sandbox -> AI -> report) |
 
-See the full picture in [`Docs/architecture.svg`](Docs/architecture.svg).
+See the full picture in [`Docs/architecture.svg`](Docs/architecture.svg) (v1.2).
 
 ---
 
