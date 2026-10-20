@@ -180,6 +180,8 @@ uses the in-box .NET compiler; bundles any staged `Tools\` memory tool):
 ```
 Copy the one `.exe` to the target and double-click (it prompts for Admin). The
 `.hawk` lands beside the `.exe`, falling back to `%SystemDrive%\HawkOutput`.
+A `Tools\` folder placed **beside the `.exe`** at IR time (e.g. `winpmem_mini_x64.exe`
++ `SHA256SUMS.txt`) overrides the tools bundled at build time.
 
 ### 2. Collect (on the target host, elevated)
 Copy the package (or the single `.exe`) to the target, then run as
@@ -187,6 +189,37 @@ Administrator:
 ```
 RunCollector.bat      (folder package)   -or-   HawkCollector.exe (single file)
 ```
+Both accept the same runtime options, so one package serves many hosts and runs
+unattended (EDR live response, PsExec, scheduled task) without hanging on a
+"press any key" prompt:
+```
+HawkCollector.exe -NoPause -CaseNumber CASE-2026-014 -Investigator jdoe -OutputDir E:\Evidence
+RunCollector.bat  /nopause -CaseNumber CASE-2026-014 -Investigator jdoe -OutputDir E:\Evidence
+```
+The `.exe` also skips the prompt automatically when it has no interactive console.
+
+| Exit code | Meaning |
+|-----------|---------|
+| 0 | Complete session sealed |
+| 1 | Not elevated - nothing collected |
+| 2 | PARTIAL session sealed (collection interrupted; what was gathered is in the `.hawk`) |
+| 3 | Seal failed - evidence left **unsealed but intact** in `hawk_work_*` (never deleted) |
+| 4 | PowerShell is in Constrained Language Mode (AppLocker/WDAC) - nothing collected |
+| 10-13 | `.exe` launcher errors (payload missing / bad `-OutputDir`) |
+
+**Locked-down hosts (AppLocker / WDAC):** unsigned scripts run in Constrained
+Language Mode, where the collector's raw-NTFS and sealing code cannot run. The
+collector detects this and stops with exit code 4 *before writing anything*.
+Sign the collector scripts with a certificate the host policy trusts, or add a
+policy exception for the collector path.
+
+**Event logs are exported in-process and high-value channels first.** Security,
+PowerShell, Sysmon, System, Defender, TaskScheduler, RDP, WMI, WinRM and BITS are
+exported right after RAM capture - before the modules run - and every export uses
+the Windows event-log API in-process. The collector starts no `wevtutil`/`cmd`
+child processes, so on hosts auditing process creation it does not flood the
+circular Security log (which could push out the oldest attacker events) before
+that log is captured.
 Produces `CASE-..._HOST_....hawk` next to the package. The session is staged
 **on the output volume** (normally the collector USB), never in `%TEMP%` on the
 system drive, so collection does not overwrite unallocated space that may hold
@@ -256,6 +289,7 @@ hawk report   <hawk.db|session> [-o f]  self-contained HTML report
 ## Tests
 ```powershell
 .\test\Run-AllTests.ps1        # everything below (what CI runs); exit code = failed gates
+.\test\Test-ElevatedCollection.ps1  # REAL elevated collection: script + .exe + CLM refusal (CI; skips if not admin)
 .\test\Test-Modules.ps1        # parse + execute all collector modules (no admin)
 .\test\Test-HawkSelfTest.ps1   # end-to-end: import -> score -> IOC -> report, seal verify + tamper cases
 .\test\Test-RawParsers.ps1     # EVTX/prefetch/shimcache/amcache parsers
@@ -263,6 +297,10 @@ dotnet test Analyzer\tests\Hawk.Core.Tests   # rule unit tests: each detection +
 ```
 
 ## Build
+Releases are built by CI: pushing a `v*` tag runs the full test suite and the real
+elevated collection, then publishes `hawk.exe`, `HawkCollector*.exe` (standard /
+comprehensive / ioc-search), the folder packages and `SHA256SUMS.txt` built from
+that exact commit (`.github/workflows/release.yml`). To build locally:
 ```powershell
 $dotnet = "C:\Program Files\dotnet\dotnet.exe"
 & $dotnet publish Analyzer\src\Hawk.Analyzer\Hawk.Analyzer.csproj `

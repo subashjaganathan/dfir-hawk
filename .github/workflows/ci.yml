@@ -17,7 +17,28 @@ jobs:
           dotnet-version: '8.0.x'
 
       # Full suite under Windows PowerShell 5.1 (the collector's target runtime):
-      # parse-lint, analyzer build, collector modules, raw parsers, self-test.
+      # parse-lint, analyzer build, collector modules, raw parsers, self-test, unit tests.
       - name: Run all tests
         shell: powershell
         run: .\test\Run-AllTests.ps1
+
+  # GitHub's Windows runners are elevated, so this job runs the REAL collection
+  # (VSS shadow, raw hives, $MFT, Security EVTX) through both entry points - the
+  # scripts and the self-extracting .exe - plus the Constrained Language refusal.
+  elevated-collection:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Build analyzer
+        shell: powershell
+        run: dotnet build Analyzer\src\Hawk.Analyzer\Hawk.Analyzer.csproj -c Debug -v q --nologo
+
+      - name: Real elevated collection (script + exe + CLM)
+        shell: powershell
+        run: .\test\Test-ElevatedCollection.ps1

@@ -2,20 +2,47 @@
 .SYNOPSIS
     Hawk Collector orchestrator - runs on the TARGET host.
     Executes packaged modules, acquires raw artifacts, produces one .hawk file.
+
+.DESCRIPTION
+    Exit codes (stable - automation, EDR live response and the .exe rely on them):
+      0  complete session sealed
+      1  not elevated (nothing collected)
+      2  PARTIAL session sealed (collection interrupted; what was gathered is in the .hawk)
+      3  SEAL FAILED - evidence left UNSEALED in the hawk_work_* folder (never deleted)
+      4  PowerShell is in ConstrainedLanguage mode (AppLocker/WDAC) - nothing collected
+
+.PARAMETER CaseNumber / Investigator
+    Override the values baked into config.json at build time (e.g. per-host runs of one package).
 #>
 [CmdletBinding()]
 param(
     [Parameter(Mandatory)][string]$PackageRoot,
-    [string]$OutputDir = $PackageRoot   # session lands next to the package (USB) by default
+    [string]$OutputDir = $PackageRoot,   # session lands next to the package (USB) by default
+    [string]$CaseNumber = '',
+    [string]$Investigator = ''
 )
 
 $ErrorActionPreference = 'Continue'
+
+# Constrained Language Mode (AppLocker / WDAC enforcing on unsigned scripts) blocks Add-Type and
+# the .NET calls used for raw NTFS reads and ZIP sealing. Running anyway used to abort mid-way and
+# then delete the work folder - losing everything gathered. Refuse up front, loudly.
+if ($ExecutionContext.SessionState.LanguageMode -ne 'FullLanguage') {
+    Write-Host "[!] PowerShell is running in $($ExecutionContext.SessionState.LanguageMode) mode (AppLocker/WDAC policy)." -ForegroundColor Red
+    Write-Host '    The collector needs FullLanguage. Options: sign the collector scripts with a certificate the' -ForegroundColor Red
+    Write-Host '    host policy trusts, add a policy exception for the collector path, or collect with a tool the' -ForegroundColor Red
+    Write-Host '    policy already allows. Nothing was collected and nothing was written.' -ForegroundColor Red
+    exit 4
+}
+
 Import-Module (Join-Path $PackageRoot 'Runtime\Hawk.Common.psm1') -Force
 Import-Module (Join-Path $PackageRoot 'Runtime\Hawk.RawNtfs.psm1') -Force -ErrorAction SilentlyContinue
 
 if (-not (Test-HawkAdmin)) { Write-Host '[!] Run elevated.' -ForegroundColor Red; exit 1 }
 
 $Config   = Get-Content (Join-Path $PackageRoot 'config.json') -Raw | ConvertFrom-Json
+if ($CaseNumber)   { $Config.caseNumber = $CaseNumber }
+if ($Investigator) { $Config.investigator = $Investigator }
 $Hostname = $env:COMPUTERNAME
 $StartUtc = (Get-Date).ToUniversalTime()
 $Stamp    = $StartUtc.ToString('yyyyMMddTHHmmssZ')
@@ -85,6 +112,7 @@ $ModuleResults = @()
 $EvtxStatus    = @()
 $aborted       = $false
 $abortReason   = $null
+$script:HawkExit = 3   # assume "not sealed" until the seal step proves otherwise
 
 try {
 
@@ -94,6 +122,56 @@ try {
 # Tools\ (winpmem/DumpIt); skips gracefully if absent.
 if ($Config.rawAcquisition.memory) {
     Invoke-HawkMemoryAcquisition -ToolsDir (Join-Path $PackageRoot 'Tools') -WorkRoot $WorkRoot -RawArtifacts ([ref]$RawArtifacts)
+}
+
+# --- Raw EVTX acquisition -------------------------------------------------------
+# Full native .evtx export (no truncation), IN-PROCESS (Export-HawkEventLog): no
+# cmd/wevtutil child processes, which on a host auditing process creation would
+# write thousands of 4688/4689 events into the circular Security log. Time-bounded
+# by eventLogDays when set; per-channel status recorded in the manifest.
+# Pass 1 runs NOW, before the modules: the logs most at risk of rolling over from
+# the collector's own activity (Security: process/logon auditing; PowerShell:
+# script-block logging of our own scripts) are captured before we perturb them.
+$EvtxPriority = @(
+    'Security', 'Microsoft-Windows-PowerShell/Operational', 'Windows PowerShell',
+    'Microsoft-Windows-Sysmon/Operational', 'System',
+    'Microsoft-Windows-Windows Defender/Operational', 'Microsoft-Windows-TaskScheduler/Operational',
+    'Microsoft-Windows-TerminalServices-LocalSessionManager/Operational',
+    'Microsoft-Windows-TerminalServices-RemoteConnectionManager/Operational',
+    'Microsoft-Windows-WMI-Activity/Operational', 'Microsoft-Windows-WinRM/Operational',
+    'Microsoft-Windows-Bits-Client/Operational', 'Application'
+)
+$EvtxPlan = @{ All = @(); Priority = @(); Remaining = @() }
+if ($Config.rawAcquisition.evtxChannels) {
+    $EvtxPlan.All = @(if ($Config.rawAcquisition.evtxChannels -contains '*') {
+        try { [System.Diagnostics.Eventing.Reader.EventLogSession]::GlobalSession.GetLogNames() | Where-Object { $_ } }
+        catch { Write-HawkLog "channel enumeration failed: $_" 'WARN' }
+    } else { $Config.rawAcquisition.evtxChannels })
+    $EvtxPlan.Priority  = @($EvtxPriority | Where-Object { $EvtxPlan.All -contains $_ })
+    $EvtxPlan.Remaining = @($EvtxPlan.All | Where-Object { $EvtxPlan.Priority -notcontains $_ })
+}
+$EvtxDays = if ($Config.eventLogDays -and [int]$Config.eventLogDays -gt 0) { [int]$Config.eventLogDays } else { 0 }
+# Dot-sourced so it appends to this scope's $RawArtifacts / $EvtxStatus.
+$ExportChannels = {
+    param([string[]]$List, [string]$Pass)
+    $n = 0
+    foreach ($ch in $List) {
+        $n++
+        if ($n % 100 -eq 0) { Write-Host ("    ...EVTX {0}/{1}" -f $n, $List.Count) -ForegroundColor DarkGray }
+        $safe = ($ch -replace '[\\/]', '%4') + '.evtx'
+        $dest = Join-Path $WorkRoot "raw\evtx\$safe"
+        $err = Export-HawkEventLog -Channel $ch -Destination $dest -Days $EvtxDays
+        $exported = (-not $err) -and (Test-Path -LiteralPath $dest)
+        if ($exported) {
+            $RawArtifacts += [ordered]@{ path = "raw/evtx/$safe"; source = $ch; method = 'eventlog-api'; pass = $Pass
+                sha256 = (Get-FileHash -LiteralPath $dest -Algorithm SHA256).Hash }
+        } elseif (-not $err) { $err = 'no output (empty channel)' }
+        $EvtxStatus += [ordered]@{ channel = $ch; exported = $exported; pass = $Pass; error = $err }
+    }
+}
+if ($EvtxPlan.Priority.Count) {
+    Write-Host ("[*] Exporting {0} high-value event logs first (Security, PowerShell, Sysmon, ...)" -f $EvtxPlan.Priority.Count) -ForegroundColor Cyan
+    . $ExportChannels $EvtxPlan.Priority 'priority'
 }
 
 # --- Volatile: live packet capture (built-in netsh trace, passive) -----------
@@ -151,54 +229,13 @@ if ($PacketCapture) {
     $PacketCapture = $null
 }
 
-# --- Raw EVTX acquisition -------------------------------------------------------
-# Full native .evtx export (no truncation). Time-bounded by eventLogDays when set
-# (keeps Security logs from bloating the session); per-channel status recorded so
-# the analyst can see exactly what was and wasn't captured.
-if ($Config.rawAcquisition.evtxChannels) {
-    $channels = if ($Config.rawAcquisition.evtxChannels -contains '*') {
-        (wevtutil el) | Where-Object { $_ }
-    } else { $Config.rawAcquisition.evtxChannels }
-
-    # Optional time filter: XPath, no spaces (avoids native-arg quoting issues).
-    $timeQuery = $null
-    if ($Config.eventLogDays -and [int]$Config.eventLogDays -gt 0) {
-        $ms = [int64]$Config.eventLogDays * 86400000
-        # Single-quoted literal: '@', '<' and '$' are inert (a double-quoted
-        # string here trips the PS parser's redirection/splatting look-ahead).
-        $timeQuery = '*[System[TimeCreated[timediff(@SystemTime)<=' + $ms + ']]]'
-    }
-
-    $chTotal = @($channels).Count
-    Write-Host ("[*] Exporting {0} event-log channels (no per-channel spam; can take several minutes)..." -f $chTotal) -ForegroundColor Cyan
-    $chIdx = 0
-    foreach ($ch in $channels) {
-        $chIdx++
-        if ($chIdx % 100 -eq 0) { Write-Host ("    ...EVTX {0}/{1}" -f $chIdx, $chTotal) -ForegroundColor DarkGray }
-        $safe = ($ch -replace '[\\/]', '%4') + '.evtx'
-        $dest = Join-Path $WorkRoot "raw\evtx\$safe"
-        $exported = $false; $err = $null
-        try {
-            # Try time-bounded export first, fall back to full export if the
-            # channel rejects the query (some classic logs do).
-            if ($timeQuery) {
-                cmd /c "wevtutil epl `"$ch`" `"$dest`" `"/q:$timeQuery`" /ow:true" 2>$null | Out-Null
-                if (-not (Test-Path $dest)) {
-                    cmd /c "wevtutil epl `"$ch`" `"$dest`" /ow:true" 2>$null | Out-Null
-                }
-            } else {
-                cmd /c "wevtutil epl `"$ch`" `"$dest`" /ow:true" 2>$null | Out-Null
-            }
-            if (Test-Path $dest) {
-                $exported = $true
-                $RawArtifacts += [ordered]@{ path = "raw/evtx/$safe"; source = $ch; method = 'wevtutil'
-                    sha256 = (Get-FileHash $dest -Algorithm SHA256).Hash }
-            } else { $err = 'no output (access denied or empty channel)' }
-        } catch { $err = "$_"; Write-HawkLog "EVTX export failed for ${ch}: $_" 'WARN' }
-        $EvtxStatus += [ordered]@{ channel = $ch; exported = $exported; error = $err }
-    }
-    Write-HawkLog "EVTX channels exported: $(@($RawArtifacts | Where-Object { $_.path -like 'raw/evtx/*' }).Count) of $(@($channels).Count)"
-
+# --- Raw EVTX acquisition, pass 2: every remaining configured channel -----------
+if ($EvtxPlan.Remaining.Count) {
+    Write-Host ("[*] Exporting {0} remaining event-log channels (in-process, no child processes)..." -f $EvtxPlan.Remaining.Count) -ForegroundColor Cyan
+    . $ExportChannels $EvtxPlan.Remaining 'remaining'
+}
+if ($EvtxPlan.All.Count) {
+    Write-HawkLog "EVTX channels exported: $(@($EvtxStatus | Where-Object { $_.exported }).Count) of $($EvtxPlan.All.Count)"
     # The Security channel is the highest-value DFIR source and requires elevation;
     # the orchestrator already enforces admin, but surface it loudly if it slipped.
     $secStatus = $EvtxStatus | Where-Object { $_.channel -eq 'Security' }
@@ -418,23 +455,42 @@ $AllHashes = @(Get-HawkFileTree -Root $WorkRoot | ForEach-Object {
 # Partial sessions get a _PARTIAL tag so the analyst sees the status at a glance.
 $partTag = if ($aborted) { '_PARTIAL' } else { '' }
 $SessionFile = Join-Path $OutputDir ("{0}_{1}_{2}{3}.hawk" -f $CaseNum, $Hostname, $Stamp, $partTag)
-Add-Type -AssemblyName System.IO.Compression.FileSystem
-[IO.Compression.ZipFile]::CreateFromDirectory($WorkRoot, $SessionFile,
-    [IO.Compression.CompressionLevel]::Optimal, $false)
-
-$SessionHash = (Get-FileHash $SessionFile -Algorithm SHA256).Hash
-"$SessionHash  $(Split-Path $SessionFile -Leaf)" | Out-File "$SessionFile.sha256" -Encoding ascii
+$SessionHash = $null; $sealError = $null
+try {
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
+    [IO.Compression.ZipFile]::CreateFromDirectory($WorkRoot, $SessionFile,
+        [IO.Compression.CompressionLevel]::Optimal, $false)
+    # Confirm the container really holds every staged file before anything is removed.
+    $staged = @(Get-HawkFileTree -Root $WorkRoot).Count
+    $zip = [IO.Compression.ZipFile]::OpenRead($SessionFile)
+    try { $zipped = @($zip.Entries | Where-Object { $_.Name }).Count } finally { $zip.Dispose() }
+    if ($zipped -ne $staged) { throw "container holds $zipped of $staged staged files" }
+    $SessionHash = (Get-FileHash -LiteralPath $SessionFile -Algorithm SHA256).Hash
+    "$SessionHash  $(Split-Path $SessionFile -Leaf)" | Out-File "$SessionFile.sha256" -Encoding ascii
+} catch { $sealError = "$_" }
 
 Write-Host ""
-if ($aborted) {
-    Write-Host "[!] PARTIAL session (collection was interrupted): $SessionFile" -ForegroundColor Yellow
+if ($sealError) {
+    # NEVER delete unsealed evidence: leave the work folder for manual sealing / copy-off.
+    Write-Host "[!] SEAL FAILED: $sealError" -ForegroundColor Red
+    Write-Host "    Evidence is UNSEALED but intact in: $WorkRoot" -ForegroundColor Red
+    Write-Host "    hashes.json inside it still lists every file's SHA256. Do not delete it." -ForegroundColor Red
+    try { Write-HawkLog "SEAL FAILED: $sealError - work folder kept: $WorkRoot" 'ERROR' } catch {}
+    $script:HawkExit = 3
 } else {
-    Write-Host "[+] Session: $SessionFile" -ForegroundColor Green
+    if ($aborted) {
+        Write-Host "[!] PARTIAL session (collection was interrupted): $SessionFile" -ForegroundColor Yellow
+        $script:HawkExit = 2
+    } else {
+        Write-Host "[+] Session: $SessionFile" -ForegroundColor Green
+        $script:HawkExit = 0
+    }
+    Write-Host "[+] SHA256 : $SessionHash"
+    Write-Host "    Import this file in Hawk Analyzer."
+    # Clean working dir (evidence now sealed in the .hawk and verified above)
+    Remove-Item $WorkRoot -Recurse -Force -ErrorAction SilentlyContinue
 }
-Write-Host "[+] SHA256 : $SessionHash"
-Write-Host "    Import this file in Hawk Analyzer."
-
-# Clean working dir (evidence now sealed in the .hawk)
-Remove-Item $WorkRoot -Recurse -Force -ErrorAction SilentlyContinue
 
 }  # end finally (seal)
+
+exit $script:HawkExit
