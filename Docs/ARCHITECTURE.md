@@ -14,7 +14,8 @@ Original, clean-room implementation.
 │  │                           / SRUM / MFT parsed at IMPORT time     │
 │  ├── Whitelist Engine      → NSRL bloom filter + org baseline       │
 │  ├── MRI Scoring Engine    → per-process risk 0–100                 │
-│  ├── IOC Matcher           → Sigma / YARA / OpenIOC                 │
+│  ├── IOC Matcher           → IP / domain / hash lists (Sigma/YARA   │
+│  │                           planned)                               │
 │  └── UI (WebView2 window)  → MRI worklist, timeline, pivoting,      │
 │                              tagging, HTML report export            │
 └─────────────────────────────────────────────────────────────────────┘
@@ -24,10 +25,10 @@ Original, clean-room implementation.
 ┌─────────────────────────────────────────────────────────────────────┐
 │ TARGET HOST (victim machine — USB / network share, no install)      │
 │                                                                     │
-│  Hawk Collector (pure PowerShell 5.1 — Win7 → Server 2025)          │
+│  Hawk Collector (Windows PowerShell 5.1; Win7/2008R2 need WMF 5.1)  │
 │  ├── RunCollector.bat      → elevation + execution policy bypass    │
 │  ├── Collector.ps1         → orchestrator (from Run_IR_Collection)  │
-│  ├── Modules\*.ps1         → collection-only modules (existing 60+) │
+│  ├── Modules\*.ps1         → 53 collection-only modules             │
 │  └── config.json           → which modules + parameters (preset)    │
 └─────────────────────────────────────────────────────────────────────┘
 ```
@@ -48,6 +49,12 @@ Original, clean-room implementation.
    from the DB *after* triage, not before.
 5. **Schema versioning everywhere.** Every JSON artifact carries
    schemaVersion; the importer refuses unknown majors.
+6. **Verify, never assume.** The analyzer re-checks the collection-time seal
+   on every import and reports VERIFIED / FAILED / UNVERIFIABLE - it never
+   claims integrity it has not checked.
+7. **Leave the smallest footprint.** No packets from the target by default,
+   volatile state collected first, session staged on the output media, and
+   the collector's own traces recorded in the manifest.
 
 ## Capabilities
 
@@ -58,7 +65,8 @@ Original, clean-room implementation.
 | Risk scoring      | MRI engine (`Configuration/MRI/*.json`), 0–100 per item |
 | Known-good        | NSRL RDS bloom filter + org baseline                    |
 | Timeline          | Pivot windows + field filters                           |
-| IOC matching      | Sigma + YARA + OpenIOC import                           |
+| IOC matching      | IP / domain / hash indicators (CSV/JSON/TXT); Sigma + YARA planned |
+| Evidence integrity| Seal re-verified on import + `hawk verify` (sidecar + hashes.json) |
 | Analyst UI        | WebView2 desktop window                                 |
 | Memory            | WinPmem acquisition + Volatility3 hand-off              |
 
