@@ -8,7 +8,10 @@
       3. Test-Modules           - all collector modules execute on this host.
       4. Raw parsers            - build a synthetic .hawk, import it, assert the
                                   EVTX/prefetch/shimcache/amcache parsers ran.
-      5. Test-HawkSelfTest      - end-to-end import -> score -> IOC -> report.
+      5. Test-HawkSelfTest      - end-to-end import -> score -> IOC -> report,
+                                  plus evidence-seal verification / tamper cases.
+      6. Unit tests             - xUnit rule tests (each detection + its benign
+                                  look-alike) and parser helpers.
 
     Exit code = number of failed gates (0 = all green). No admin required.
 #>
@@ -23,7 +26,7 @@ $fails  = 0
 function Section($t) { Write-Host "`n=== $t ===" -ForegroundColor Cyan }
 
 # 1. Parse-lint -----------------------------------------------------------------
-Section '1/5 PowerShell parse-lint'
+Section '1/6 PowerShell parse-lint'
 $psFiles = Get-ChildItem (Join-Path $Suite 'Collector') -Recurse -Filter *.ps1
 $badParse = 0
 foreach ($f in $psFiles) {
@@ -35,18 +38,18 @@ if ($badParse) { $fails++; Write-Host "  $badParse file(s) failed to parse" -For
 else { Write-Host ("  [PASS] {0} scripts parse cleanly" -f $psFiles.Count) -ForegroundColor Green }
 
 # 2. Build ----------------------------------------------------------------------
-Section '2/5 Build analyzer (Debug)'
+Section '2/6 Build analyzer (Debug)'
 & $dotnet build $proj -c Debug -v q --nologo
 if ($LASTEXITCODE -ne 0) { $fails++; Write-Host '  [FAIL] build' -ForegroundColor Red }
 else { Write-Host '  [PASS] build' -ForegroundColor Green }
 
 # 3. Collector modules ----------------------------------------------------------
-Section '3/5 Test-Modules'
+Section '3/6 Test-Modules'
 & (Join-Path $PSScriptRoot 'Test-Modules.ps1')
 if ($LASTEXITCODE -ne 0) { $fails++ }
 
 # 4. Raw parsers (synthetic build -> import -> assert) --------------------------
-Section '4/5 Raw parsers (synthetic)'
+Section '4/6 Raw parsers (synthetic)'
 if (Test-Path $dll) {
     $tmp = Join-Path $env:TEMP ("hawk_rawci_" + [guid]::NewGuid().ToString('N').Substring(0,6))
     New-Item -ItemType Directory -Force $tmp | Out-Null
@@ -67,9 +70,16 @@ if (Test-Path $dll) {
 } else { Write-Host '  [SKIP] analyzer not built' -ForegroundColor Yellow; $fails++ }
 
 # 5. End-to-end self-test -------------------------------------------------------
-Section '5/5 Test-HawkSelfTest'
+Section '5/6 Test-HawkSelfTest'
 & (Join-Path $PSScriptRoot 'Test-HawkSelfTest.ps1')
 if ($LASTEXITCODE -ne 0) { $fails++ }
+
+# 6. Unit tests (xUnit) ---------------------------------------------------------
+Section '6/6 Unit tests (detection rules + parser helpers)'
+$testProj = Join-Path $Suite 'Analyzer\tests\Hawk.Core.Tests\Hawk.Core.Tests.csproj'
+& $dotnet test $testProj -c Debug -v q --nologo
+if ($LASTEXITCODE -ne 0) { $fails++; Write-Host '  [FAIL] unit tests' -ForegroundColor Red }
+else { Write-Host '  [PASS] unit tests' -ForegroundColor Green }
 
 Write-Host ("`n=== RESULT: {0} ===" -f $(if ($fails) { "$fails gate(s) FAILED" } else { 'ALL GREEN' })) -ForegroundColor ($(if ($fails) { 'Red' } else { 'Green' }))
 exit $fails

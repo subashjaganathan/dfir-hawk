@@ -96,6 +96,16 @@ public class EvtxParser : IRawArtifactParser
         [106] = ["TaskName", "UserContext"],
     };
 
+    private static readonly System.Text.RegularExpressions.Regex ArchiveSuffix =
+        new(@"-\d{4}-\d{2}-\d{2}-\d{2}-\d{2}-\d{2}(-\d+)?$", System.Text.RegularExpressions.RegexOptions.Compiled);
+
+    /// <summary>"Archive-Security-2026-05-01-12-00-00-123" -> "Security"; non-archive names unchanged.</summary>
+    internal static string ArchiveBaseChannel(string channel)
+    {
+        if (!channel.StartsWith("Archive-", StringComparison.OrdinalIgnoreCase)) return channel;
+        return ArchiveSuffix.Replace(channel["Archive-".Length..], "");
+    }
+
     public int Parse(SqliteConnection conn, string sessionDir, Action<string>? progress = null)
     {
         var evtxDir = Path.Combine(sessionDir, "raw", "evtx");
@@ -106,16 +116,12 @@ public class EvtxParser : IRawArtifactParser
         {
             // collector stores channel path separators as %4 (wevtutil convention)
             var channel = Path.GetFileNameWithoutExtension(file).Replace("%4", "/");
-            // Archived logs come through as Archive-<Channel>-<timestamp>.evtx —
-            // map them back to their base channel name for ID-curated parsing.
-            var lookup = channel;
-            if (lookup.StartsWith("Archive-", StringComparison.OrdinalIgnoreCase))
-            {
-                var core = lookup["Archive-".Length..];
-                var lastDash = core.LastIndexOf('-');
-                if (lastDash > 0) core = core[..lastDash];
-                lookup = core.Replace("-", "/");
-            }
+            // Archived logs come through as Archive-<Channel>-YYYY-MM-DD-hh-mm-ss-fff.evtx
+            // (channel '/' already decoded from %4 above) - map them back to their base
+            // channel so they get the same ID-curated parsing. The old code stripped
+            // only the last dash-segment and turned every '-' into '/', so archived
+            // Security logs matched nothing and kept only Warning+ (i.e. ~nothing).
+            var lookup = ArchiveBaseChannel(channel);
             try
             {
                 // Mapped channel → curated event-ID set. Unmapped channel → still
