@@ -128,17 +128,26 @@ $CollectorConfig | ConvertTo-Json -Depth 6 | Out-File (Join-Path $OutputPath 'co
 
 # --- Launcher ----------------------------------------------------------------
 # Built as an ASCII line array (avoids here-string / non-ASCII parsing issues).
+# Usage:  RunCollector.bat [/nopause] [-CaseNumber X] [-Investigator Y] [-OutputDir Z]
+# /nopause (first argument) is for EDR live response / PsExec / scheduled runs, where a
+# "press any key" prompt would hang the session. The collector's exit code is returned.
 $bat = @(
     '@echo off',
     ':: Hawk Collector launcher - run as Administrator on the TARGET host.',
+    ':: Usage: RunCollector.bat [/nopause] [-CaseNumber X] [-Investigator Y] [-OutputDir Z]',
+    'setlocal',
+    'set "HAWK_PAUSE=1"',
+    'if /i "%~1"=="/nopause" ( set "HAWK_PAUSE=" & shift /1 )',   # /1: keep %0 so %~dp0 still resolves
     'net session >nul 2>&1',
     'if %errorlevel% neq 0 (',
     '    echo [!] Administrator privileges required. Right-click then Run as administrator.',
-    '    pause',
+    '    if defined HAWK_PAUSE pause',
     '    exit /b 1',
     ')',
-    'powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0Runtime\Collector.ps1" -PackageRoot "%~dp0."',
-    'pause'
+    'powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0Runtime\Collector.ps1" -PackageRoot "%~dp0." %1 %2 %3 %4 %5 %6 %7 %8 %9',
+    'set "HAWK_RC=%errorlevel%"',
+    'if defined HAWK_PAUSE pause',
+    'exit /b %HAWK_RC%'
 )
 ($bat -join "`r`n") | Out-File (Join-Path $OutputPath 'RunCollector.bat') -Encoding ascii
 

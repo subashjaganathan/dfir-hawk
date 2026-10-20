@@ -171,6 +171,51 @@ function ConvertTo-HawkUtc {
     } catch { $null }
 }
 
+function Test-HawkFullLanguage {
+    <#
+      $true when PowerShell runs in FullLanguage. AppLocker / WDAC run unsigned
+      scripts in ConstrainedLanguage, where Add-Type and most .NET calls (raw
+      NTFS reads, ZIP sealing, hashing helpers) are blocked - the collector must
+      refuse to start rather than produce a silently broken or lost session.
+    #>
+    $ExecutionContext.SessionState.LanguageMode -eq 'FullLanguage'
+}
+
+function Export-HawkEventLog {
+    <#
+      Exports one event-log channel to an .evtx IN-PROCESS via
+      EventLogSession.ExportLog - no cmd.exe / wevtutil.exe child processes.
+      Spawning two processes per channel (x1,000+ channels) floods Security
+      4688/4689 auditing and can roll the circular Security log over BEFORE it
+      is exported, destroying the oldest attacker evidence. Optional time bound
+      (Days); falls back to an unbounded export if the channel rejects the
+      query (some classic logs do). Returns $null on success, else the error.
+      tolerateQueryErrors is FALSE on purpose: with $true an unreadable channel
+      (access denied) "exports" as a valid but EMPTY .evtx and reports success.
+    #>
+    param(
+        [Parameter(Mandatory)][string]$Channel,
+        [Parameter(Mandatory)][string]$Destination,
+        [int]$Days = 0
+    )
+    $session = [System.Diagnostics.Eventing.Reader.EventLogSession]::GlobalSession
+    $logName = [System.Diagnostics.Eventing.Reader.PathType]::LogName
+    $query = if ($Days -gt 0) { '*[System[TimeCreated[timediff(@SystemTime)<=' + ([int64]$Days * 86400000) + ']]]' } else { '*' }
+    try {
+        if (Test-Path -LiteralPath $Destination) { Remove-Item -LiteralPath $Destination -Force }
+        $session.ExportLog($Channel, $logName, $query, $Destination, $false)
+        return $null
+    } catch {
+        $first = $_.Exception.GetBaseException().Message
+        if ($query -eq '*') { return $first }
+        try {
+            if (Test-Path -LiteralPath $Destination) { Remove-Item -LiteralPath $Destination -Force }
+            $session.ExportLog($Channel, $logName, '*', $Destination, $false)
+            return $null
+        } catch { return $_.Exception.GetBaseException().Message }
+    }
+}
+
 function Get-HawkFileTree {
     <#
       Every file under Root with its Root-relative path ('/'-separated).
@@ -447,4 +492,4 @@ function Test-HawkOnline {
 Export-ModuleMember -Function Test-HawkAdmin, Write-HawkLog, Initialize-HawkSession,
     Export-HawkArtifact, Get-HawkFileIdentity, ConvertTo-HawkUtc, Resolve-HawkCommandPath,
     Invoke-HawkMemoryAcquisition, Start-HawkNetworkCapture, Stop-HawkNetworkCapture, Test-HawkOnline,
-    Get-HawkUserProfiles, Get-HawkFileTree
+    Get-HawkUserProfiles, Get-HawkFileTree, Test-HawkFullLanguage, Export-HawkEventLog
