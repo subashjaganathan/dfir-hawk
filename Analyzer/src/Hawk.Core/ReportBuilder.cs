@@ -216,9 +216,33 @@ public static class ReportBuilder
         Kv("Case number", info.GetValueOrDefault("caseNumber") as string);
         Kv("Report generated (UTC)", DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ"));
         Kv("Analyzer", "Hawk Analyzer");
-        sb.Append("</div><p class=\"note\">Session integrity is sealed by the per-file SHA256 manifest (hashes.json) "
-            + "inside the .hawk container and the container's own .sha256 sidecar produced at collection time. "
-            + "This report is a derived view; the .hawk session remains the authoritative evidence.</p></section>");
+
+        // Report what was actually verified at import - never assert a seal on faith.
+        IntegrityVerifier.Result? ir = null;
+        try { if (info.GetValueOrDefault("integrity") is string j) ir = JsonSerializer.Deserialize<IntegrityVerifier.Result>(j); }
+        catch { /* older hawk.db without an integrity record */ }
+        Kv("Integrity", ir?.Status ?? "NOT CHECKED (session imported by an older analyzer)");
+        if (ir != null)
+        {
+            Kv("Container SHA256", $"{ir.ContainerSha256} ({ir.ContainerCheck})");
+            Kv("Per-file seal (hashes.json)", ir.HashesManifestPresent
+                ? $"{ir.FilesVerified} verified, {ir.Mismatched.Count} mismatched, {ir.Missing.Count} missing, {ir.Unlisted.Count} unlisted"
+                : "hashes.json missing");
+            Kv("Verified at (UTC)", ir.VerifiedAtUtc);
+        }
+        sb.Append("</div>");
+        if (ir != null && ir.Status != IntegrityVerifier.Verified)
+        {
+            sb.Append("<p class=\"note\" style=\"color:var(--critical,#b00020);font-weight:600\">WARNING: the session's "
+                + "collection-time seal did not fully verify. Treat every finding below as unconfirmed until the "
+                + "discrepancy is explained.</p>");
+            foreach (var f in ir.Mismatched.Take(50)) sb.Append($"<div class=\"mono\">MISMATCH {Enc(f)}</div>");
+            foreach (var f in ir.Missing.Take(50)) sb.Append($"<div class=\"mono\">MISSING {Enc(f)}</div>");
+            foreach (var f in ir.Unlisted.Take(50)) sb.Append($"<div class=\"mono\">UNLISTED {Enc(f)}</div>");
+        }
+        sb.Append("<p class=\"note\">Integrity is checked at import by re-hashing the container against its .sha256 "
+            + "sidecar and every file against the collector's hashes.json. This report is a derived view; the .hawk "
+            + "session remains the authoritative evidence.</p></section>");
     }
 
     // ------------------------------------------------------------------ IOC

@@ -17,9 +17,12 @@ evidence session, and a .NET 8 **analyzer** (`hawk.exe`) that imports it, scores
 artifacts with a false-positive-resistant Malware Risk Index (MRI), parses raw
 forensic artifacts (EVTX/prefetch/shimcache/amcache/`$MFT`/`$UsnJrnl`/SRUM), runs
 an optional Volatility3 memory hand-off, matches IOCs, tags findings with MITRE
-ATT&CK, and produces an interactive UI and a self-contained HTML report. Runs on
-**Windows 7 SP1 -> Windows 11 / Server 2025** - an original, clean-room
-implementation (known-good whitelist built from NIST NSRL).
+ATT&CK, and produces an interactive UI and a self-contained HTML report. The
+collector targets **Windows PowerShell 5.1**: in-box on Windows 10 / 11 and
+Server 2016 -> 2025; Windows 7 SP1 / 8.1 / Server 2008 R2 - 2012 R2 need
+**WMF 5.1** installed first (stock Windows 7 ships PowerShell 2.0, which lacks
+`Get-FileHash` / `Get-CimInstance`). An original, clean-room implementation
+(known-good whitelist built from NIST NSRL).
 
 Right now we are building the Windows engine. From there, we build out the rest
 of the architecture one layer at a time.
@@ -45,8 +48,8 @@ one of its layers. The table tracks what is implemented versus planned.
 
 | Layer | In the architecture | Status here |
 |-------|---------------------|-------------|
-| 01 Collection | Win/Linux/macOS/Cloud/Mobile, RFC 3227 order | **Done** - Windows (53 modules, RFC 3227); other platforms planned |
-| 02 Staging | Encrypted, classified case directory | Partial - sealed, hash-verified `.hawk` (encryption/classification planned) |
+| 01 Collection | Win/Linux/macOS/Cloud/Mobile, RFC 3227 order | **Done** - Windows (53 modules, volatile-first order); other platforms planned |
+| 02 Staging | Encrypted, classified case directory | Partial - sealed `.hawk`, re-verified on import / `hawk verify` (encryption/classification planned) |
 | 03 MCP tool server | Sandboxed forensic MCP tools for AI | Planned (parsers exist as analyzer libraries today) |
 | 03.5 RAG / anomaly | Vector store, outlier detection | Planned |
 | 04 DLP + AI | Local-first (Ollama) / cloud fallback, hard-fail DLP | Planned |
@@ -165,7 +168,8 @@ evidence; everything else is a derived view.
     -CaseNumber CASE-2026-001 -Investigator "you" -OutputPath E:\HawkCollector
 ```
 Presets: `standard` (~10-15 min triage), `comprehensive` (full, incl. raw
-hives/MFT/SRUM via VSS), `ioc-search`.
+hives/MFT/SRUM via VSS), `ioc-search` (hash-bearing binaries + network/DNS/
+browser state for the IOC matcher; no raw acquisition).
 
 **Single-file build (for isolated / quarantined hosts):** wrap a built package
 into one self-extracting, self-elevating `.exe` (no internet, no dependencies -
@@ -183,10 +187,29 @@ Administrator:
 ```
 RunCollector.bat      (folder package)   -or-   HawkCollector.exe (single file)
 ```
-Produces `CASE-..._HOST_....hawk` next to the package. The collector makes **no
-network calls**; on an isolated host it auto-detects the lack of internet,
-records it in the manifest (`host.isolated`), and skips online-dependent OS
-behavior (certificate revocation lookups) so it never stalls.
+Produces `CASE-..._HOST_....hawk` next to the package. The session is staged
+**on the output volume** (normally the collector USB), never in `%TEMP%` on the
+system drive, so collection does not overwrite unallocated space that may hold
+deleted-file evidence; the collector warns when the output is on the system
+drive.
+
+The collector sends **no packets** by default. Connectivity is recorded for
+provenance (`host.connectivity` = `online` / `offline` / `unknown`) from a
+local-only interface/gateway check. An active reachability probe (TCP to public
+DNS resolvers on port 53) runs only if you opt in with
+`New-HawkCollector.ps1 -ConnectivityProbe` or `"connectivityProbe": true` in the
+preset - leave it off when an attacker may be watching egress.
+
+### Verify (before you analyze, and whenever custody changes hands)
+```
+hawk verify <session.hawk>
+```
+Re-hashes the container against its `.sha256` sidecar and every file inside it
+against the collector's `hashes.json`, listing any MISMATCH / MISSING / UNLISTED
+file. Exit code `0` VERIFIED, `2` FAILED, `3` UNVERIFIABLE (e.g. no sidecar).
+`hawk import` runs the same check automatically, stores the result in `hawk.db`,
+and the UI header and the report's Chain of Custody section show it - a session
+that fails is still importable (to examine damage) but is flagged everywhere.
 
 ### 3. Analyze (on the analyst box)
 GUI: double-click `dist\hawk.exe`, **Import Session Data**, pick the `.hawk`,
@@ -194,7 +217,8 @@ then click **Generate Report**.
 
 CLI:
 ```
-hawk import   <session.hawk>            import, parse, score -> hawk.db
+hawk verify   <session.hawk>            re-verify the evidence seal (exit 0/2/3)
+hawk import   <session.hawk>            verify, import, parse, score -> hawk.db
 hawk worklist <hawk.db>                 MRI-ranked process worklist
 hawk persistence <hawk.db>              MRI-ranked persistence
 hawk findings <hawk.db>                 event-rule + IOC findings
@@ -215,7 +239,7 @@ hawk report   <hawk.db|session> [-o f]  self-contained HTML report
 | **Import** | Typed tables for processes/services/tasks/run-keys/startup/WMI/network; generic table for everything else. Unknown timestamps stay `[UNKNOWN]` - never substituted. |
 | **Raw parsers** | EVTX (11 curated channels + any other channel kept for Warning+), Prefetch (MAM + SCCA v17-31), Registry hive reader (regf), Shimcache, Amcache, **`$MFT`** (file inventory, resolved paths, `$SI`/`$FN` timestamps, deleted-file recovery), **`$UsnJrnl:$J`** (create/delete/rename change history). |
 | **MRI scoring** | Trust ladder first; identity rules skipped for trusted binaries, behavioral rules always run. Per-item graduated score + band (trusted/low/medium/high/critical). Host-role aware. |
-| **Event/artifact rules** | Log cleared, Defender detections/RTP-off, suspicious service install, encoded-PS task, script-block convergence, brute-force/password-spray, **lateral movement** (remote/external logons), **injected memory** (private RWX in unsigned procs), **recycle-bin executable deletion**, **API-hidden scheduled tasks** (raw XML), **deleted executables** (`$MFT`). All false-positive-resistant (convergence + trust gating). |
+| **Event/artifact rules** | Log cleared, Defender detections/RTP-off, suspicious service install, encoded-PS task, script-block convergence, brute-force/password-spray, **lateral movement** (remote/external logons), **injected memory** (private RWX in unsigned procs), **recycle-bin executable deletion**, **API-hidden scheduled tasks** (raw XML), **deleted executables** (`$MFT`), **Kerberoasting** (4769 RC4 SPN sweep), **account creation / privileged-group adds** (converging to critical when both hit within 24h), **audit policy weakened** (4719), **web-shell and malicious-document process trees**, **LSASS dumping** (command lines + Sysmon 10 memory reads), **LOLBin download/execute**, **`$MFT` timestomping** (`$SI` vs `$FN`). All false-positive-resistant (convergence + trust gating); every finding carries its MITRE ATT&CK technique. |
 | **IOC matching** | IP/domain/hash indicators from `Configuration/IOC` -> critical findings. |
 | **Output** | WebView2 UI (worklist, findings, persistence, network, timeline w/ pivot, event logs, execution evidence) + portable HTML report. Timeline includes process/network/persistence/logon/EVTX, plus BAM execution, recent-file access, recycle-bin deletions, and USN file-system changes. |
 
@@ -231,9 +255,11 @@ hawk report   <hawk.db|session> [-o f]  self-contained HTML report
 
 ## Tests
 ```powershell
+.\test\Run-AllTests.ps1        # everything below (what CI runs); exit code = failed gates
 .\test\Test-Modules.ps1        # parse + execute all collector modules (no admin)
-.\test\Test-HawkSelfTest.ps1   # end-to-end: import -> score -> IOC -> report (17 asserts)
+.\test\Test-HawkSelfTest.ps1   # end-to-end: import -> score -> IOC -> report, seal verify + tamper cases
 .\test\Test-RawParsers.ps1     # EVTX/prefetch/shimcache/amcache parsers
+dotnet test Analyzer\tests\Hawk.Core.Tests   # rule unit tests: each detection + its benign look-alike
 ```
 
 ## Build
@@ -268,14 +294,18 @@ Raw acquisition (via VSS): all EVTX channels, registry hives (incl.
 memory acquisition *before* any disk/VSS activity if an acquisition tool is
 staged in the package's `Tools\` folder (`winpmem_mini_x64.exe`, `DumpIt.exe`,
 or `MagnetRAMCapture.exe`). With no tool present it skips gracefully. The image
-lands in `raw/memory/` (multi-GB; the session grows accordingly).
+lands in `raw/memory/` (multi-GB; the session grows accordingly). The tool's
+SHA256 is recorded in the manifest; drop a `Tools\SHA256SUMS.txt`
+(`<sha256>  winpmem_mini_x64.exe`) to **pin** it - a tool that does not match is
+refused before it runs.
 
 **Live packet capture** (volatile): the comprehensive preset captures network
 traffic passively via the **built-in** `netsh trace` (kernel NDIS capture ->
 `.etl`, converted to `.pcapng` with `pktmon` when available) - no third-party
-tool required. Fixed-duration (`packetCaptureSeconds`, default 120s),
-size-capped circular buffer (`packetCaptureMaxMB`, default 500). Output lands in
-`raw/network/` for analysis in Wireshark/Zeek. Same approach as the v1 toolkit.
+tool required. The capture runs in the background **while the modules collect**
+and is stopped afterwards once at least `packetCaptureSeconds` (default 120s)
+have elapsed; size-capped circular buffer (`packetCaptureMaxMB`, default 500).
+Output lands in `raw/network/` for analysis in Wireshark/Zeek.
 
 ## Memory forensics (optional Volatility3 hand-off)
 `hawk memory <hawk.db> --image <physmem.raw> [--handles]` runs Volatility3 (if

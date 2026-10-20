@@ -171,6 +171,53 @@ function ConvertTo-HawkUtc {
     } catch { $null }
 }
 
+function Get-HawkFileTree {
+    <#
+      Every file under Root with its Root-relative path ('/'-separated).
+      Enumerates through .NET from the Root string itself, so the relative
+      path is always correct - unlike FullName.Substring(Root.Length), which
+      breaks when Root is an 8.3 short path (e.g. C:\Users\SUBASH~1\...) and the
+      provider hands back long names, silently corrupting hashes.json.
+    #>
+    param([Parameter(Mandatory)][string]$Root)
+    $di = New-Object System.IO.DirectoryInfo ($Root.TrimEnd('\') + '\')
+    $prefix = $di.FullName
+    foreach ($f in $di.EnumerateFiles('*', [System.IO.SearchOption]::AllDirectories)) {
+        [pscustomobject]@{ Rel = $f.FullName.Substring($prefix.Length) -replace '\\', '/'; FullName = $f.FullName }
+    }
+}
+
+function Get-HawkUserProfiles {
+    <#
+      User profiles from the registry ProfileList (authoritative - catches
+      profiles redirected off C:\Users, renamed folders and domain/Entra
+      profiles), plus anything else under %SystemDrive%\Users. Returns objects
+      with Sid ($null when only found on disk), Name (folder leaf) and Path.
+    #>
+    $seen = @{}
+    $out = New-Object System.Collections.Generic.List[object]
+    try {
+        $pl = 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\ProfileList'
+        foreach ($k in (Get-ChildItem -LiteralPath $pl -ErrorAction Stop)) {
+            $sid = $k.PSChildName
+            if ($sid -notmatch '^S-1-5-21-|^S-1-12-1-') { continue }   # real users only (local/domain/Entra ID)
+            $img = (Get-ItemProperty -LiteralPath $k.PSPath -Name ProfileImagePath -ErrorAction SilentlyContinue).ProfileImagePath
+            if (-not $img) { continue }
+            $img = [Environment]::ExpandEnvironmentVariables($img)
+            if ($seen.ContainsKey($img.ToLowerInvariant())) { continue }
+            $seen[$img.ToLowerInvariant()] = $true
+            $out.Add([pscustomobject]@{ Sid = $sid; Name = (Split-Path $img -Leaf); Path = $img })
+        }
+    } catch { Write-HawkLog "ProfileList read failed, falling back to the Users folder: $_" 'WARN' }
+    foreach ($u in (Get-ChildItem (Join-Path $env:SystemDrive 'Users') -Directory -ErrorAction SilentlyContinue)) {
+        if ($seen.ContainsKey($u.FullName.ToLowerInvariant())) { continue }
+        if ($u.Name -in 'Public', 'Default', 'Default User', 'All Users') { continue }
+        $seen[$u.FullName.ToLowerInvariant()] = $true
+        $out.Add([pscustomobject]@{ Sid = $null; Name = $u.Name; Path = $u.FullName })
+    }
+    ,$out.ToArray()
+}
+
 function Invoke-HawkMemoryAcquisition {
     <#
       Captures a full physical RAM image to raw\memory\ using an acquisition
@@ -196,6 +243,29 @@ function Invoke-HawkMemoryAcquisition {
     if (-not ($wp -or $dumpit -or $magnet)) {
         Write-HawkLog 'memory: no RAM-acquisition tool in Tools\ (drop winpmem.exe / DumpIt.exe to enable full memory capture); skipping' 'WARN'
         return
+    }
+
+    # Integrity of the acquisition tool itself: always record its hash, and when
+    # Tools\SHA256SUMS.txt exists ("<sha256>  <file>" lines) REFUSE to run a tool
+    # that is not listed with a matching hash (tampered / swapped binary).
+    $chosen = @($wp, $dumpit, $magnet) | Where-Object { $_ } | Select-Object -First 1
+    $toolHash = (Get-FileHash -LiteralPath $chosen.FullName -Algorithm SHA256).Hash
+    $sums = Join-Path $ToolsDir 'SHA256SUMS.txt'
+    if (Test-Path -LiteralPath $sums) {
+        $pinned = @{}
+        foreach ($ln in (Get-Content -LiteralPath $sums)) {
+            $parts = "$ln".Trim() -split '\s+', 2
+            if ($parts.Count -eq 2) { $pinned[$parts[1].TrimStart('*').ToLowerInvariant()] = $parts[0].ToUpperInvariant() }
+        }
+        $want = $pinned[$chosen.Name.ToLowerInvariant()]
+        if ($want -ne $toolHash) {
+            Write-Host "[!] Memory tool $($chosen.Name) does not match Tools\SHA256SUMS.txt - REFUSING to run it." -ForegroundColor Red
+            Write-HawkLog "memory: $($chosen.Name) sha256 $toolHash does not match pinned '$want' - acquisition refused" 'ERROR'
+            return
+        }
+        Write-HawkLog "memory: $($chosen.Name) sha256 verified against Tools\SHA256SUMS.txt ($toolHash)"
+    } else {
+        Write-HawkLog "memory: $($chosen.Name) sha256 $toolHash UNVERIFIED (add Tools\SHA256SUMS.txt to pin it)" 'WARN'
     }
 
     try {
@@ -232,30 +302,27 @@ function Invoke-HawkMemoryAcquisition {
     if ($img -and $img.Length -gt 0) {
         Write-HawkLog ("memory: captured {0:N0} bytes -> {1}" -f $img.Length, $img.Name)
         if ($RawArtifacts) {
-            $RawArtifacts.Value += [ordered]@{ path = "raw/memory/$($img.Name)"; source = 'physical memory'; method = 'memory-acquisition' }
+            $RawArtifacts.Value += [ordered]@{ path = "raw/memory/$($img.Name)"; source = 'physical memory'; method = 'memory-acquisition'
+                tool = $chosen.Name; toolSha256 = $toolHash }
         }
     } else {
         Write-HawkLog 'memory: acquisition produced no image' 'WARN'
     }
 }
 
-function Invoke-HawkNetworkCapture {
+function Start-HawkNetworkCapture {
     <#
-      Passive live packet capture via the built-in `netsh trace` (kernel NDIS
-      capture -> .etl), converted to .pcapng with `pktmon etl2pcap` when
-      available (both built into Windows 10/Server 2019+). Fixed-duration,
-      circular, size-capped. Read-only/passive. Volatile evidence, so it runs
-      with the early acquisition phase. No third-party tool required; skips
-      gracefully if the capture cannot start. Integrity via session hashes.json.
-      (Same approach as windows-dfir-toolkit v1 Network_Packet_Capture.)
+      Starts a passive live packet capture via the built-in `netsh trace`
+      (kernel NDIS capture -> .etl). Fixed-size, circular. Returns a capture
+      handle for Stop-HawkNetworkCapture, or $null if the capture could not
+      start (collection continues). The capture runs IN THE BACKGROUND while the
+      collection modules execute, so it no longer blocks collection for its
+      whole duration. (Same approach as windows-dfir-toolkit v1.)
     #>
     param(
         [Parameter(Mandatory)][string]$WorkRoot,
-        [int]$Seconds = 120,
-        [int]$MaxSizeMB = 500,
-        [ref]$RawArtifacts = $null
+        [int]$MaxSizeMB = 500
     )
-    $ErrorActionPreference = 'Continue'
     $netDir = Join-Path $WorkRoot 'raw\network'
     New-Item -ItemType Directory -Force $netDir | Out-Null
     $etl = Join-Path $netDir 'capture.etl'
@@ -264,8 +331,7 @@ function Invoke-HawkNetworkCapture {
     # 'netsh trace start' fails with "a tracing session is already in progress".
     try { $null = netsh trace stop 2>&1 } catch {}
 
-    Write-Host ("[*] Packet capture: running netsh trace for {0}s (passive, circular, max {1}MB). Please wait..." -f $Seconds, $MaxSizeMB) -ForegroundColor Cyan
-    Write-HawkLog "network: starting netsh packet capture (${Seconds}s, max ${MaxSizeMB}MB, circular)"
+    Write-HawkLog "network: starting netsh packet capture (max ${MaxSizeMB}MB, circular)"
     $started = $false
     try {
         $null = netsh trace start capture=yes report=disabled overwrite=yes maxSize=$MaxSizeMB fileMode=circular traceFile="$etl" 2>&1
@@ -274,23 +340,37 @@ function Invoke-HawkNetworkCapture {
     if (-not $started) {
         Write-Host '[!] Packet capture could not start; skipping (collection continues).' -ForegroundColor Yellow
         Write-HawkLog 'network: netsh trace start failed (needs admin / capture provider); skipping packet capture' 'WARN'
-        return
+        return $null
     }
+    Write-Host '[*] Packet capture running in the background (netsh trace, passive).' -ForegroundColor Cyan
+    [pscustomobject]@{ Etl = $etl; Dir = $netDir; StartedAt = (Get-Date) }
+}
 
-    # Visible countdown so this phase never looks hung from the console.
-    $remaining = $Seconds
+function Stop-HawkNetworkCapture {
+    <#
+      Stops a capture started by Start-HawkNetworkCapture once at least
+      MinSeconds have elapsed since it started, converts the ETL to .pcapng
+      with the built-in pktmon when available, and records both raw artifacts.
+    #>
+    param(
+        $Capture,
+        [int]$MinSeconds = 120,
+        [ref]$RawArtifacts = $null
+    )
+    if (-not $Capture) { return }
+    $remaining = [int][Math]::Ceiling($MinSeconds - ((Get-Date) - $Capture.StartedAt).TotalSeconds)
     while ($remaining -gt 0) {
+        Write-Host ("    ...packet capture: {0}s until minimum duration" -f $remaining) -ForegroundColor DarkGray
         $chunk = [Math]::Min(10, $remaining)
         try { Start-Sleep -Seconds $chunk } catch {}
         $remaining -= $chunk
-        Write-Host ("    ...capturing ({0}s remaining)" -f $remaining) -ForegroundColor DarkGray
     }
 
     # 'netsh trace stop' flushes/finalizes the ETL and can take a long time
     # (sometimes minutes). Bound it with a timed job so a slow stop can never
     # hang the entire collection; whatever was captured remains usable.
-    Write-Host '[*] Finalizing capture (stopping trace; this can take up to a minute)...' -ForegroundColor Cyan
-    Write-HawkLog 'network: stopping netsh trace'
+    Write-Host '[*] Finalizing packet capture (stopping trace; this can take up to a minute)...' -ForegroundColor Cyan
+    Write-HawkLog ("network: stopping netsh trace after {0:N0}s" -f ((Get-Date) - $Capture.StartedAt).TotalSeconds)
     try {
         $stopJob = Start-Job -ScriptBlock { netsh trace stop 2>&1 | Out-Null }
         if (Wait-Job $stopJob -Timeout 180) {
@@ -304,10 +384,11 @@ function Invoke-HawkNetworkCapture {
         Write-HawkLog "network: netsh trace stop error - $_" 'WARN'
     }
 
+    $etl = $Capture.Etl
     if (-not (Test-Path -LiteralPath $etl)) { Write-HawkLog 'network: capture produced no ETL' 'WARN'; return }
 
     # Best-effort convert ETL -> pcapng (Wireshark-readable) via built-in pktmon.
-    $pcap = Join-Path $netDir 'capture.pcapng'
+    $pcap = Join-Path $Capture.Dir 'capture.pcapng'
     try { $null = pktmon etl2pcap "$etl" --out "$pcap" 2>&1 } catch {}
     if (-not (Test-Path -LiteralPath $pcap)) { try { $null = pktmon etl2pcap "$etl" -o "$pcap" 2>&1 } catch {} }
 
@@ -325,28 +406,45 @@ function Invoke-HawkNetworkCapture {
 
 function Test-HawkOnline {
     <#
-      Fast, non-hanging internet reachability probe. Returns $true/$false and
-      never throws or blocks for more than ~TimeoutMs per endpoint. The collector
-      makes NO network calls during collection (raw-only contract); this exists
-      ONLY to (1) record provenance - was this an isolated/quarantined host - and
-      (2) let online-dependent OS behavior (certificate CRL/CTL retrieval during
-      Authenticode checks) be skipped so an isolated host never stalls.
+      Records whether the host looked connected, for provenance only (was this
+      an isolated / quarantined host?). Collection never depends on the answer.
+
+      Default: LOCAL-ONLY check - interface state and whether any adapter has a
+      default gateway. Sends NO packets, so an attacker watching egress sees
+      nothing from the collector.
+
+      -Active: additionally attempts short TCP connects to public DNS resolvers
+      (8.8.8.8 / 1.1.1.1 / 9.9.9.9 :53). This IS outbound traffic; it only runs
+      when the collector config sets "connectivityProbe": true.
+
+      Returns 'online' | 'offline' | 'unknown' (a local check cannot prove
+      internet reachability, so a connected-looking host is 'unknown').
     #>
-    param([int]$TimeoutMs = 1500)
-    try { if (-not [System.Net.NetworkInformation.NetworkInterface]::GetIsNetworkAvailable()) { return $false } } catch {}
+    param([switch]$Active, [int]$TimeoutMs = 1500)
+    try { if (-not [System.Net.NetworkInformation.NetworkInterface]::GetIsNetworkAvailable()) { return 'offline' } } catch {}
+    $hasGateway = $false
+    try {
+        foreach ($nic in [System.Net.NetworkInformation.NetworkInterface]::GetAllNetworkInterfaces()) {
+            if ("$($nic.OperationalStatus)" -ne 'Up' -or "$($nic.NetworkInterfaceType)" -eq 'Loopback') { continue }
+            $gws = @($nic.GetIPProperties().GatewayAddresses | Where-Object { $_.Address -and "$($_.Address)" -notin '0.0.0.0', '::' })
+            if ($gws.Count) { $hasGateway = $true; break }
+        }
+    } catch { $hasGateway = $true }   # cannot tell -> do not claim offline
+    if (-not $hasGateway) { return 'offline' }
+    if (-not $Active) { return 'unknown' }
+
     foreach ($hp in @(@('8.8.8.8', 53), @('1.1.1.1', 53), @('9.9.9.9', 53))) {
         $c = $null
         try {
             $c = New-Object System.Net.Sockets.TcpClient
             $iar = $c.BeginConnect($hp[0], [int]$hp[1], $null, $null)
-            if ($iar.AsyncWaitHandle.WaitOne($TimeoutMs, $false) -and $c.Connected) {
-                $c.Close(); return $true
-            }
+            if ($iar.AsyncWaitHandle.WaitOne($TimeoutMs, $false) -and $c.Connected) { return 'online' }
         } catch {} finally { if ($c) { try { $c.Close() } catch {} } }
     }
-    $false
+    'offline'
 }
 
 Export-ModuleMember -Function Test-HawkAdmin, Write-HawkLog, Initialize-HawkSession,
     Export-HawkArtifact, Get-HawkFileIdentity, ConvertTo-HawkUtc, Resolve-HawkCommandPath,
-    Invoke-HawkMemoryAcquisition, Invoke-HawkNetworkCapture, Test-HawkOnline
+    Invoke-HawkMemoryAcquisition, Start-HawkNetworkCapture, Stop-HawkNetworkCapture, Test-HawkOnline,
+    Get-HawkUserProfiles, Get-HawkFileTree

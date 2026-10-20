@@ -1,6 +1,7 @@
 {
   "schemaVersion": "1.0",
   "preset": "comprehensive",
+  "connectivityProbe": false,
   "description": "Full collection (~45-90 min). Everything in standard plus raw hives, MFT/USN, SRUM, browser, cloud, AD modules (auto-skipped on non-DC).",
   "modules": ["*"],
   "excludeModules": ["Memory/RAM_Dump", "Network/Network_Packet_Capture"],

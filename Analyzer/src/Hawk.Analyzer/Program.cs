@@ -46,6 +46,14 @@ internal static class Program
                 Console.WriteLine($"[+] Session database: {dbPath}");
                 return 0;
             }
+            case "verify":
+            {
+                // hawk verify <session.hawk> - independent re-check of the collection seal
+                if (args.Length < 2) { Usage(); return 1; }
+                var r = IntegrityVerifier.Verify(args[1]);
+                foreach (var line in r.Summary()) Console.WriteLine(line);
+                return r.Status == IntegrityVerifier.Verified ? 0 : r.Status == IntegrityVerifier.Failed ? 2 : 3;
+            }
             case "findings":
             {
                 if (args.Length < 2) { Usage(); return 1; }
@@ -268,6 +276,8 @@ internal static class Program
           hawk                                      launch the analysis GUI
           hawk import <session.hawk>                import session (incl. EVTX/prefetch/shimcache/
                                                     amcache raw parsing), build hawk.db, run MRI
+          hawk verify <session.hawk>                re-verify the seal (.sha256 sidecar + hashes.json);
+                                                    exit 0 VERIFIED, 2 FAILED, 3 UNVERIFIABLE
           hawk worklist <hawk.db>                   print MRI-ranked process worklist
           hawk persistence <hawk.db>                print MRI-ranked persistence worklist
           hawk findings <hawk.db>                   print event-rule findings (sprays, log clears...)

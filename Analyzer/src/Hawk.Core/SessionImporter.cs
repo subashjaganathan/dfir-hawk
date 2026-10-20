@@ -100,11 +100,18 @@ public class SessionImporter
         if (!schemaVersion.StartsWith("1."))
             throw new InvalidDataException($"Unsupported session schema {schemaVersion} (importer supports 1.x)");
 
+        // Re-verify the collection-time seal before trusting any of it. A failed
+        // check does not block import (the analyst may need to examine a damaged
+        // or tampered session) but it is recorded and surfaced everywhere.
+        var integrity = IntegrityVerifier.Verify(hawkFile, extractDir);
+        foreach (var line in integrity.Summary()) progress?.Invoke(
+            integrity.Status == IntegrityVerifier.Verified || line.StartsWith("  ") ? line : "WARNING: " + line);
+
         var dbPath = Path.Combine(outputDir, "hawk.db");
         if (File.Exists(dbPath)) File.Delete(dbPath);   // re-import = fresh observations
         using var conn = Db.Open(dbPath);
 
-        StoreSessionMeta(conn, manifest);
+        StoreSessionMeta(conn, manifest, integrity);
 
         var artifactDir = Path.Combine(extractDir, "artifacts");
         if (Directory.Exists(artifactDir))
@@ -170,7 +177,7 @@ public class SessionImporter
         }
     }
 
-    private static void StoreSessionMeta(SqliteConnection conn, JsonDocument manifest)
+    private static void StoreSessionMeta(SqliteConnection conn, JsonDocument manifest, IntegrityVerifier.Result integrity)
     {
         using var tx = conn.BeginTransaction();
         using var cmd = conn.CreateCommand();
@@ -184,6 +191,8 @@ public class SessionImporter
         Put("hostname", root.GetProperty("host").GetProperty("hostname").GetString() ?? "");
         Put("role", root.GetProperty("host").TryGetProperty("role", out var r) ? r.GetString() ?? "unknown" : "unknown");
         Put("caseNumber", root.GetProperty("case").GetProperty("caseNumber").GetString() ?? "");
+        Put("integrity", IntegrityVerifier.ToJson(integrity));
+        Put("integrityStatus", integrity.Status);
         tx.Commit();
     }
 

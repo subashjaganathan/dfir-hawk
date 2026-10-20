@@ -11,7 +11,7 @@ namespace Hawk.Core;
 /// Same FP philosophy as MriEngine: single benign-capable signals score
 /// low or not at all; convergence and explicit-threat events score high.
 /// </summary>
-public static class EventScorer
+public static partial class EventScorer
 {
     public static int Score(SqliteConnection conn, Action<string>? progress = null)
     {
@@ -31,6 +31,7 @@ public static class EventScorer
         total += UnsignedDrivers(conn);
         total += RemoteAccessTools(conn);
         total += SrumEgress(conn);
+        total += ScoreDetectionPack2(conn);
         TagTechniques(conn);          // stamp every finding with its MITRE ATT&CK technique
         progress?.Invoke($"event rules: {total} findings");
         return total;
@@ -64,6 +65,25 @@ public static class EventScorer
         ["remote-access-tool-present"]         = "T1219 | Remote Access Software",
         ["remote-access-tool-unsigned"]        = "T1219 | Remote Access Software",
         ["srum-egress-userwritable"]           = "T1041 | Exfiltration Over C2 Channel",
+        // names the rules actually emit (previously untagged: map keys did not match)
+        ["event-log-cleared"]                  = "T1070.001 | Indicator Removal: Clear Windows Event Logs",
+        ["defender-rtp-disabled"]              = "T1562.001 | Impair Defenses: Disable or Modify Tools",
+        ["suspicious-task-created"]            = "T1053.005 | Scheduled Task/Job: Scheduled Task",
+        ["brute-force"]                        = "T1110 | Brute Force",
+        ["remote-interactive-logon"]           = "T1021.001 | Remote Services: Remote Desktop Protocol",
+        ["network-logon-external"]             = "T1021.002 | Remote Services: SMB/Windows Admin Shares",
+        // detection pack 2
+        ["kerberoasting-rc4-spn-sweep"]        = "T1558.003 | Steal or Forge Kerberos Tickets: Kerberoasting",
+        ["new-account-added-to-privileged-group"] = "T1136.001 | Create Account: Local Account (+ T1098 Account Manipulation)",
+        ["member-added-to-privileged-group"]   = "T1098 | Account Manipulation",
+        ["local-account-created"]              = "T1136 | Create Account",
+        ["audit-policy-weakened"]              = "T1562.002 | Impair Defenses: Disable Windows Event Logging",
+        ["webserver-spawned-shell"]            = "T1505.003 | Server Software Component: Web Shell",
+        ["office-spawned-shell-history"]       = "T1204.002 | User Execution: Malicious File",
+        ["lsass-dump-commandline"]             = "T1003.001 | OS Credential Dumping: LSASS Memory",
+        ["lsass-memory-access"]                = "T1003.001 | OS Credential Dumping: LSASS Memory",
+        ["lolbin-download-execute"]            = "T1218 | System Binary Proxy Execution",
+        ["mft-timestomp-suspected"]            = "T1070.006 | Indicator Removal: Timestomp",
     };
 
     private static void TagTechniques(SqliteConnection conn)

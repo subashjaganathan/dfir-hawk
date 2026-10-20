@@ -9,7 +9,8 @@
 
     The produced .exe:
       - requests Administrator at launch (UAC prompt; no "run as admin" needed),
-      - extracts the package to a temp folder,
+      - extracts the package beside its output (the .exe's folder, normally the
+        USB) rather than %TEMP% on the evidence drive,
       - runs the collector, writing the .hawk next to the .exe (e.g. the USB),
         falling back to %SystemDrive%\HawkOutput then %TEMP% if not writable,
       - cleans up the temp folder afterwards.
@@ -81,7 +82,10 @@ class HawkLauncher {
     static int Main() {
         Console.Title = "Hawk Collector";
         Console.WriteLine("=== Hawk Collector (self-extracting, offline-capable) ===");
-        string tmp = Path.Combine(Path.GetTempPath(), "HawkCollector_" + Guid.NewGuid().ToString("N").Substring(0, 8));
+        // Unpack beside the output (normally the USB the .exe runs from), not in
+        // %TEMP% on the evidence drive: writes there overwrite unallocated space.
+        string outDir = ChooseOutputDir();
+        string tmp = Path.Combine(outDir, "HawkCollector_pkg_" + Guid.NewGuid().ToString("N").Substring(0, 8));
         Directory.CreateDirectory(tmp);
         try {
             string zipPath = Path.Combine(tmp, "payload.zip");
@@ -97,7 +101,6 @@ class HawkLauncher {
             string collector = Path.Combine(pkg, "Runtime", "Collector.ps1");
             if (!File.Exists(collector)) { Console.WriteLine("[!] Collector.ps1 not found after extract."); return 3; }
 
-            string outDir = ChooseOutputDir();
             Console.WriteLine("[*] Output (.hawk) will be written to: " + outDir);
 
             ProcessStartInfo psi = new ProcessStartInfo();
@@ -135,7 +138,7 @@ class HawkLauncher {
 
     # --- Compile -------------------------------------------------------------
     New-Item -ItemType Directory -Force (Split-Path $OutputExe) | Out-Null
-    $args = @(
+    $cscArgs = @(
         '/nologo', '/target:exe', '/platform:anycpu',
         "/win32manifest:$manifest",
         "/reference:$zipAsm2", "/reference:$zipAsm",
@@ -143,7 +146,7 @@ class HawkLauncher {
         "/out:$OutputExe",
         $src
     )
-    & $csc @args
+    & $csc @cscArgs
     if ($LASTEXITCODE -ne 0 -or -not (Test-Path $OutputExe)) { throw "csc.exe compilation failed (exit $LASTEXITCODE)" }
 
     Write-Host ("[+] Built: {0} ({1:N1} MB)" -f $OutputExe, ((Get-Item $OutputExe).Length / 1MB)) -ForegroundColor Green
