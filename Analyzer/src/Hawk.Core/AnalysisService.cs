@@ -106,7 +106,7 @@ public static class AnalysisService
         var meta = new Dictionary<string, object?>();
         using (var cmd = conn.CreateCommand())
         {
-            cmd.CommandText = "SELECT key, value FROM session WHERE key IN ('hostname','caseNumber','role','manifest')";
+            cmd.CommandText = "SELECT key, value FROM session WHERE key IN ('hostname','caseNumber','role','manifest','integrity','integrityStatus')";
             using var r = cmd.ExecuteReader();
             while (r.Read())
             {

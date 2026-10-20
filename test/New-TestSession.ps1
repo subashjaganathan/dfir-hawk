@@ -180,7 +180,10 @@ $files = Get-ChildItem $root -Recurse -File | ForEach-Object {
 
 $hawk = Join-Path $PSScriptRoot 'TEST-002_TEST-HOST.hawk'
 if (Test-Path $hawk) { Remove-Item $hawk -Force }
+if (Test-Path "$hawk.sha256") { Remove-Item "$hawk.sha256" -Force }
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 [IO.Compression.ZipFile]::CreateFromDirectory($root, $hawk, 'Optimal', $false)
+# Container sidecar, exactly as Collector.ps1 seals a real session.
+"$((Get-FileHash $hawk -Algorithm SHA256).Hash)  $(Split-Path $hawk -Leaf)" | Out-File "$hawk.sha256" -Encoding ascii
 Remove-Item $root -Recurse -Force
 Write-Host "[+] $hawk"

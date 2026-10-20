@@ -53,6 +53,34 @@ $importOut = Hawk import $hawk
 $db = Join-Path $analysis 'hawk.db'
 Assert 'import produced hawk.db' (Test-Path $db) "(import said: $($importOut -split "`n" | Select-Object -Last 1))"
 Assert 'IOC matcher ran' ($importOut -match 'IOC')
+Assert 'import re-verified the seal' ($importOut -match 'integrity: VERIFIED')
+
+# --- 3b. evidence integrity: clean verifies, tampering is caught ----------------
+$vOut = Hawk verify $hawk; $vExit = $LASTEXITCODE
+Assert 'verify: clean session VERIFIED (exit 0)' ($vExit -eq 0 -and $vOut -match 'integrity: VERIFIED') "(exit $vExit)"
+
+$tamperDir = Join-Path $env:TEMP ("hawk_tamper_" + [guid]::NewGuid().ToString('N').Substring(0,6))
+New-Item -ItemType Directory -Force $tamperDir | Out-Null
+Add-Type -AssemblyName System.IO.Compression.FileSystem
+# (a) modified artifact inside the container, sidecar regenerated -> per-file seal must fail
+$t1 = Join-Path $tamperDir 'modified.hawk'; Copy-Item $hawk $t1
+$zip = [IO.Compression.ZipFile]::Open($t1, 'Update')
+$entry = $zip.Entries | Where-Object { ($_.FullName -replace '\\','/') -eq 'artifacts/processes.json' } | Select-Object -First 1
+$sw = New-Object IO.StreamWriter($entry.Open()); $sw.BaseStream.Seek(0, 'End') | Out-Null; $sw.Write(' '); $sw.Close()
+$zip.Dispose()
+"$((Get-FileHash $t1 -Algorithm SHA256).Hash)  modified.hawk" | Out-File "$t1.sha256" -Encoding ascii
+$vOut = Hawk verify $t1; $vExit = $LASTEXITCODE
+Assert 'verify: modified artifact FAILED (exit 2)' ($vExit -eq 2 -and $vOut -match 'MISMATCH\s+artifacts/processes.json') "(exit $vExit)"
+# (b) untouched container but wrong sidecar -> container check must fail
+$t2 = Join-Path $tamperDir 'sidecar.hawk'; Copy-Item $hawk $t2
+"$('0' * 64)  sidecar.hawk" | Out-File "$t2.sha256" -Encoding ascii
+$vOut = Hawk verify $t2; $vExit = $LASTEXITCODE
+Assert 'verify: sidecar mismatch FAILED (exit 2)' ($vExit -eq 2 -and $vOut -match 'MISMATCH') "(exit $vExit)"
+# (c) no sidecar at all -> cannot be called verified
+$t3 = Join-Path $tamperDir 'nosidecar.hawk'; Copy-Item $hawk $t3
+$vOut = Hawk verify $t3; $vExit = $LASTEXITCODE
+Assert 'verify: missing sidecar UNVERIFIABLE (exit 3)' ($vExit -eq 3) "(exit $vExit)"
+Remove-Item $tamperDir -Recurse -Force -ErrorAction SilentlyContinue
 
 # --- 4. MRI scoring assertions ------------------------------------------------
 $wl = Hawk worklist $db
@@ -82,6 +110,7 @@ if (Test-Path $report) {
     Assert 'report shows IOC hit'         ($html -match '203\.0\.113\.7|evil-c2')
     Assert 'report is self-contained (no external src)' ($html -notmatch '<script' -and $html -notmatch 'src="http')
     Assert 'report respects [UNKNOWN] convention' ($html -notmatch '1970-01-01')
+    Assert 'report states verified integrity'     ($html -match 'Integrity</div><div class="v mono">VERIFIED')
 }
 
 # --- cleanup ------------------------------------------------------------------
