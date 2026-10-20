@@ -21,9 +21,18 @@ $StartUtc = (Get-Date).ToUniversalTime()
 $Stamp    = $StartUtc.ToString('yyyyMMddTHHmmssZ')
 $CaseNum  = if ($Config.caseNumber) { $Config.caseNumber } else { "CASE-$Stamp" }
 
-$WorkRoot = Join-Path $env:TEMP "hawk_$Stamp"
+# Stage the session on the OUTPUT volume (normally the collector USB), not in
+# %TEMP%: every byte written to the system drive can overwrite unallocated
+# clusters that hold deleted-file evidence - and a RAM image is multi-GB.
+$OutputDir = (Resolve-Path -LiteralPath $OutputDir).Path
+$WorkRoot  = Join-Path $OutputDir "hawk_work_$Stamp"
 Initialize-HawkSession -WorkRoot $WorkRoot | Out-Null
 Write-HawkLog "Hawk Collector started - case $CaseNum, preset $($Config.preset)"
+$StagedOnSystemDrive = $OutputDir.StartsWith($env:SystemDrive, [StringComparison]::OrdinalIgnoreCase)
+if ($StagedOnSystemDrive) {
+    Write-Host "[!] Output is on the system drive ($OutputDir). Collection writes there can overwrite deleted-file evidence - prefer running from external media." -ForegroundColor Yellow
+    Write-HawkLog "output/staging is on the system drive ($OutputDir) - may overwrite unallocated space" 'WARN'
+}
 
 # --- Host role detection (drives analyzer role modifiers) --------------------
 $Role = 'workstation'
@@ -35,20 +44,18 @@ try {
 } catch { Write-HawkLog "role detection failed: $_" 'WARN' }
 
 # --- Connectivity awareness (isolated / quarantined host) --------------------
-# Collection itself makes NO network calls; this only records provenance and
-# lets online-dependent OS behavior be skipped so an isolated host never stalls.
-$Online = $true
-try { $Online = Test-HawkOnline } catch { $Online = $false }
-if ($Online) {
-    Write-Host '[*] Connectivity: internet reachable.' -ForegroundColor DarkGray
-    Write-HawkLog 'connectivity: internet reachable'
-} else {
-    Write-Host '[*] Connectivity: OFFLINE (isolated/quarantined host) - proceeding fully local.' -ForegroundColor Cyan
-    Write-HawkLog 'connectivity: NO internet (isolated/quarantined host) - all collection is local; online-dependent steps (cert revocation lookups) skipped' 'WARN'
-    # Prevent the crypto stack from stalling on CRL/CTL fetches during the many
-    # Authenticode checks: turn off the per-session online chain retrieval.
-    try { $env:CRYPT_OFFLINE = '1' } catch {}
+# Provenance only - collection never depends on it. The default check is
+# local-only and sends NO packets (an attacker watching egress must not see
+# the collector); the outbound TCP probe runs only if the config opts in.
+$ActiveProbe = [bool]($Config.PSObject.Properties['connectivityProbe'] -and $Config.connectivityProbe)
+$Connectivity = 'unknown'
+try { $Connectivity = Test-HawkOnline -Active:$ActiveProbe } catch {}
+switch ($Connectivity) {
+    'online'  { Write-Host '[*] Connectivity: internet reachable (active probe).' -ForegroundColor DarkGray }
+    'offline' { Write-Host '[*] Connectivity: OFFLINE (isolated/quarantined host) - proceeding fully local.' -ForegroundColor Cyan }
+    default   { Write-Host '[*] Connectivity: network present, internet not probed (no packets sent).' -ForegroundColor DarkGray }
 }
+Write-HawkLog ("connectivity: {0} ({1})" -f $Connectivity, $(if ($ActiveProbe) { 'active TCP probe' } else { 'local interface check only, no packets sent' }))
 
 # --- Collector self-footprint (so the analyst can exclude/explain our traces) -
 # Live triage inevitably leaves its own marks (this process, its prefetch, the
@@ -63,6 +70,8 @@ $Footprint = [ordered]@{
     collectorScript = $collectorPs1
     collectorSha256 = if ($collectorPs1 -and (Test-Path $collectorPs1)) { (Get-FileHash $collectorPs1 -Algorithm SHA256).Hash } else { $null }
     workRoot        = $WorkRoot
+    stagedOnSystemDrive = $StagedOnSystemDrive
+    connectivityCheck   = $(if ($ActiveProbe) { 'active-tcp-probe' } else { 'local-only' })
     tempVssMount    = $null   # set when a shadow copy is linked
     vssShadowId     = $null   # set when a shadow copy is created
     startedUtc      = $StartUtc.ToString('yyyy-MM-ddTHH:mm:ssZ')
@@ -88,14 +97,30 @@ if ($Config.rawAcquisition.memory) {
 }
 
 # --- Volatile: live packet capture (built-in netsh trace, passive) -----------
+# Started here and left running in the background while the modules execute;
+# stopped after them once the configured minimum duration has elapsed.
+$PacketCapture = $null
 if ($Config.rawAcquisition.packetCapture) {
-    $pcSecs = if ($Config.rawAcquisition.packetCaptureSeconds) { [int]$Config.rawAcquisition.packetCaptureSeconds } else { 120 }
-    $pcMB   = if ($Config.rawAcquisition.packetCaptureMaxMB)   { [int]$Config.rawAcquisition.packetCaptureMaxMB }   else { 500 }
-    Invoke-HawkNetworkCapture -WorkRoot $WorkRoot -Seconds $pcSecs -MaxSizeMB $pcMB -RawArtifacts ([ref]$RawArtifacts)
+    $pcMB = if ($Config.rawAcquisition.packetCaptureMaxMB) { [int]$Config.rawAcquisition.packetCaptureMaxMB } else { 500 }
+    $PacketCapture = Start-HawkNetworkCapture -WorkRoot $WorkRoot -MaxSizeMB $pcMB
 }
 
 # --- Run collection modules ---------------------------------------------------
-$Modules = Get-ChildItem (Join-Path $PackageRoot 'Modules') -Recurse -Filter '*.ps1' | Sort-Object FullName
+# Order of volatility (RFC 3227): live process / network / session state is
+# captured FIRST, before slow disk-heavy modules (browser, SQL, AD, ...) give
+# it time to change. Everything not listed runs afterwards, alphabetically.
+$VolatileFirst = @(
+    'Execution\processes', 'Network\network_connections', 'Network\dns_cache', 'Network\arp_entries',
+    'Accounts\logon_sessions', 'Network\smb_shares_sessions', 'Memory\named_pipes',
+    'Memory\injected_memory', 'Execution\loaded_dlls', 'Network\network_advanced', 'Network\rdp_client'
+)
+$Modules = Get-HawkFileTree -Root (Join-Path $PackageRoot 'Modules') |
+    Where-Object { $_.Rel -like '*.ps1' } |
+    Sort-Object @{ Expression = {
+        $idx = [array]::IndexOf($VolatileFirst, ($_.Rel -replace '\.ps1$', '' -replace '/', '\'))
+        if ($idx -ge 0) { $idx } else { 1000 }
+    } }, Rel |
+    ForEach-Object { Get-Item -LiteralPath $_.FullName }
 $i = 0
 foreach ($mod in $Modules) {
     $i++
@@ -118,6 +143,12 @@ foreach ($mod in $Modules) {
         endedUtc   = (Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ')
         artifactFile = "artifacts/$name.json"; recordCount = [int]"$count"; errors = $errors
     }
+}
+
+if ($PacketCapture) {
+    $pcSecs = if ($Config.rawAcquisition.packetCaptureSeconds) { [int]$Config.rawAcquisition.packetCaptureSeconds } else { 120 }
+    Stop-HawkNetworkCapture -Capture $PacketCapture -MinSeconds $pcSecs -RawArtifacts ([ref]$RawArtifacts)
+    $PacketCapture = $null
 }
 
 # --- Raw EVTX acquisition -------------------------------------------------------
@@ -194,6 +225,10 @@ if ($Config.rawAcquisition.archivedLogs) {
 }
 
 # --- Raw hives / MFT / SRUM via VSS (comprehensive preset) -----------------------
+# Paths are volume-relative (the shadow is mounted as the volume root) and
+# derived from the environment rather than assuming C:\Windows.
+$sysRoot = $env:SystemDrive.TrimEnd('\') + '\'
+$winRel  = $env:SystemRoot.Substring($sysRoot.Length)
 if ($Config.rawAcquisition.registryHives -or $Config.rawAcquisition.mft -or $Config.rawAcquisition.srum) {
     Write-Host '[*] Raw disk acquisition via VSS (registry hives / $MFT / $UsnJrnl / SRUM) - several minutes, please wait...' -ForegroundColor Cyan
     $createdShadowId = $null
@@ -232,16 +267,23 @@ if ($Config.rawAcquisition.registryHives -or $Config.rawAcquisition.mft -or $Con
                 $targets = @()   # paths relative to the volume root
                 if ($Config.rawAcquisition.registryHives) {
                     $targets += @(
-                        @{ rel = 'Windows\System32\config\SYSTEM';   dst = 'raw\registry\SYSTEM' },
-                        @{ rel = 'Windows\System32\config\SOFTWARE'; dst = 'raw\registry\SOFTWARE' },
-                        @{ rel = 'Windows\System32\config\SAM';      dst = 'raw\registry\SAM' },
-                        @{ rel = 'Windows\System32\config\SECURITY'; dst = 'raw\registry\SECURITY' },
-                        @{ rel = 'Windows\AppCompat\Programs\Amcache.hve'; dst = 'raw\registry\Amcache.hve' }
+                        @{ rel = "$winRel\System32\config\SYSTEM";   dst = 'raw\registry\SYSTEM' },
+                        @{ rel = "$winRel\System32\config\SOFTWARE"; dst = 'raw\registry\SOFTWARE' },
+                        @{ rel = "$winRel\System32\config\SAM";      dst = 'raw\registry\SAM' },
+                        @{ rel = "$winRel\System32\config\SECURITY"; dst = 'raw\registry\SECURITY' },
+                        @{ rel = "$winRel\AppCompat\Programs\Amcache.hve"; dst = 'raw\registry\Amcache.hve' }
                     )
-                    foreach ($u in (Get-ChildItem C:\Users -Directory -ErrorAction SilentlyContinue)) {
-                        $targets += @{ rel = "Users\$($u.Name)\NTUSER.DAT"; dst = "raw\registry\NTUSER_$($u.Name).DAT" }
+                    # Profiles from the registry ProfileList (not just C:\Users). The
+                    # shadow covers the system volume only; profiles elsewhere are logged.
+                    foreach ($u in (Get-HawkUserProfiles)) {
+                        if (-not $u.Path.StartsWith($sysRoot, [StringComparison]::OrdinalIgnoreCase)) {
+                            Write-HawkLog "profile $($u.Path) is not on the system volume; its hives are not in this shadow copy" 'WARN'; continue
+                        }
+                        $relProfile = $u.Path.Substring($sysRoot.Length)
+                        $tag = $u.Name -replace '[^\w.-]', '_'
+                        $targets += @{ rel = "$relProfile\NTUSER.DAT"; dst = "raw\registry\NTUSER_$tag.DAT" }
                         # UsrClass.dat holds shellbags (folder-access history incl. removable/deleted/UNC paths)
-                        $targets += @{ rel = "Users\$($u.Name)\AppData\Local\Microsoft\Windows\UsrClass.dat"; dst = "raw\registry\UsrClass_$($u.Name).dat" }
+                        $targets += @{ rel = "$relProfile\AppData\Local\Microsoft\Windows\UsrClass.dat"; dst = "raw\registry\UsrClass_$tag.dat" }
                     }
                 }
                 Write-Host ("    copying {0} registry hive(s) from the shadow..." -f $targets.Count) -ForegroundColor DarkGray
@@ -251,7 +293,7 @@ if ($Config.rawAcquisition.registryHives -or $Config.rawAcquisition.mft -or $Con
                         if (-not (Test-Path -LiteralPath $src)) { continue }
                         $dst = Join-Path $WorkRoot $t.dst
                         Copy-Item -LiteralPath $src -Destination $dst -Force -ErrorAction Stop
-                        $RawArtifacts += [ordered]@{ path = ($t.dst -replace '\\','/'); source = "C:\$($t.rel)"
+                        $RawArtifacts += [ordered]@{ path = ($t.dst -replace '\\','/'); source = "$sysRoot$($t.rel)"
                             method = 'vss'; sha256 = (Get-FileHash $dst -Algorithm SHA256).Hash }
                     } catch { Write-HawkLog "VSS copy failed: $($t.rel) - $_" 'WARN' }
                 }
@@ -261,13 +303,13 @@ if ($Config.rawAcquisition.registryHives -or $Config.rawAcquisition.mft -or $Con
                 # checkpoint) so the ESE database can be recovered/parsed; the
                 # logs are required to replay a dirty database.
                 if ($Config.rawAcquisition.srum) {
-                    $sruSrc = Join-Path $vssLink 'Windows\System32\sru'
+                    $sruSrc = Join-Path $vssLink "$winRel\System32\sru"
                     if (Test-Path -LiteralPath $sruSrc) {
                         foreach ($sf in (Get-ChildItem -LiteralPath $sruSrc -File -ErrorAction SilentlyContinue)) {
                             try {
                                 $sdst = Join-Path $WorkRoot "raw\srum\$($sf.Name)"
                                 Copy-Item -LiteralPath $sf.FullName -Destination $sdst -Force -ErrorAction Stop
-                                $RawArtifacts += [ordered]@{ path = "raw/srum/$($sf.Name)"; source = "C:\Windows\System32\sru\$($sf.Name)"
+                                $RawArtifacts += [ordered]@{ path = "raw/srum/$($sf.Name)"; source = "$env:SystemRoot\System32\sru\$($sf.Name)"
                                     method = 'vss'; sha256 = (Get-FileHash $sdst -Algorithm SHA256).Hash }
                             } catch { Write-HawkLog "VSS copy failed: sru\$($sf.Name) - $_" 'WARN' }
                         }
@@ -305,11 +347,13 @@ if ($Config.rawAcquisition.registryHives -or $Config.rawAcquisition.mft -or $Con
 
 # --- Prefetch -------------------------------------------------------------------
 if ($Config.rawAcquisition.prefetchFiles) {
-    Get-ChildItem 'C:\Windows\Prefetch\*.pf' -ErrorAction SilentlyContinue | ForEach-Object {
+    Get-ChildItem (Join-Path $env:SystemRoot 'Prefetch\*.pf') -ErrorAction SilentlyContinue | ForEach-Object {
         try {
-            Copy-Item $_.FullName (Join-Path $WorkRoot "raw\prefetch\$($_.Name)") -ErrorAction Stop
+            $pfDst = Join-Path $WorkRoot "raw\prefetch\$($_.Name)"
+            Copy-Item -LiteralPath $_.FullName $pfDst -ErrorAction Stop
+            # hash the acquired copy (the live .pf can be rewritten between copy and hash)
             $RawArtifacts += [ordered]@{ path = "raw/prefetch/$($_.Name)"; source = $_.FullName; method = 'direct'
-                sha256 = (Get-FileHash $_.FullName -Algorithm SHA256).Hash }
+                sha256 = (Get-FileHash -LiteralPath $pfDst -Algorithm SHA256).Hash }
         } catch {}
     }
 }
@@ -323,6 +367,9 @@ catch {
     Write-Host "[!] Collection error - sealing PARTIAL evidence and exiting: $_" -ForegroundColor Red
 }
 finally {
+
+# An abort during the modules must not leave a netsh trace running on the host.
+if ($PacketCapture) { try { Stop-HawkNetworkCapture -Capture $PacketCapture -MinSeconds 0 -RawArtifacts ([ref]$RawArtifacts) } catch {} }
 
 # --- Manifest (ALWAYS written; flagged partial on abort) --------------------------
 $Footprint.endedUtc = (Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ')
@@ -346,8 +393,10 @@ $Manifest = [ordered]@{
         role = $Role
         timezone = $tz
         arch = $env:PROCESSOR_ARCHITECTURE
-        internetReachable = $Online
-        isolated = (-not $Online)
+        # 'online' | 'offline' | 'unknown' - see collectorFootprint.connectivityCheck
+        connectivity = $Connectivity
+        internetReachable = $(if ($Connectivity -eq 'unknown') { $null } else { $Connectivity -eq 'online' })
+        isolated = ($Connectivity -eq 'offline')
     }
     preset = $Config.preset
     eventLogDays = $Config.eventLogDays
@@ -359,10 +408,10 @@ $Manifest = [ordered]@{
 $Manifest | ConvertTo-Json -Depth 8 | Out-File (Join-Path $WorkRoot 'manifest.json') -Encoding utf8
 
 # --- Hash everything, zip to .hawk --------------------------------------------------
-$AllHashes = Get-ChildItem $WorkRoot -Recurse -File | ForEach-Object {
-    [ordered]@{ path = $_.FullName.Substring($WorkRoot.Length + 1) -replace '\\','/'
-                sha256 = (Get-FileHash $_.FullName -Algorithm SHA256).Hash }
-}
+$AllHashes = @(Get-HawkFileTree -Root $WorkRoot | ForEach-Object {
+    [ordered]@{ path = $_.Rel
+                sha256 = (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash }
+})
 @{ schemaVersion = '1.0'; files = $AllHashes } | ConvertTo-Json -Depth 4 |
     Out-File (Join-Path $WorkRoot 'hashes.json') -Encoding utf8
 

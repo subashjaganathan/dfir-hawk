@@ -28,8 +28,9 @@ param(
     # Path to the module library (the refactored collection scripts)
     [string]$ModuleLibrary = (Join-Path $PSScriptRoot '..\Modules'),
 
-    # For ioc-search preset: IOC file determines which modules are needed
-    [string]$IocFile = ''
+    # Opt in to the outbound connectivity probe (records internet reachability
+    # in the manifest at the cost of sending packets from the target host).
+    [switch]$ConnectivityProbe
 )
 
 $ErrorActionPreference = 'Stop'
@@ -58,31 +59,46 @@ Drop optional acquisition tools here; the collector auto-detects and uses them:
   MagnetRAMCapture.exe   Alternative RAM capture.
 
 With no tool present, full memory capture is skipped (the rest of the
-collection still runs). Memory capture runs FIRST, before disk activity, and
+collection still runs).
+
+Pin the tool (recommended): add SHA256SUMS.txt here with one line per tool,
+  <sha256>  winpmem_mini_x64.exe
+When the file exists the collector REFUSES to run a tool whose hash does not
+match. Without it the tool's hash is still recorded but marked UNVERIFIED. Memory capture runs FIRST, before disk activity, and
 can produce a multi-GB image - make sure there is free space where the
 package/output sits.
 '@ | Out-File (Join-Path $OutputPath 'Tools\README.txt') -Encoding ascii
 
 # --- Resolve module list ---------------------------------------------------
+# Relative paths come from .NET enumeration of the root string itself, never
+# FullName.Substring((Resolve-Path ...).Length): the two disagree when a path is
+# an 8.3 short name (C:\Users\SUBASH~1\...), silently corrupting relative paths.
+function Get-RelFiles([string]$Root, [string]$Filter = '*') {
+    $di = New-Object System.IO.DirectoryInfo ($Root.TrimEnd('\') + '\')
+    foreach ($f in $di.EnumerateFiles($Filter, [System.IO.SearchOption]::AllDirectories)) {
+        [pscustomobject]@{ FullName = $f.FullName; Rel = $f.FullName.Substring($di.FullName.Length) }
+    }
+}
+$ModuleLibrary = (Resolve-Path $ModuleLibrary).Path
+
 if ($PresetConfig.modules -contains '*') {
-    $ModuleFiles = Get-ChildItem $ModuleLibrary -Recurse -Filter '*.ps1'
+    $ModuleFiles = @(Get-RelFiles $ModuleLibrary '*.ps1')
     if ($PresetConfig.excludeModules) {
         $ModuleFiles = $ModuleFiles | Where-Object {
-            $rel = $_.FullName.Substring((Resolve-Path $ModuleLibrary).Path.Length + 1) -replace '\\', '/' -replace '\.ps1$', ''
-            $rel -notin $PresetConfig.excludeModules
+            ($_.Rel -replace '\\', '/' -replace '\.ps1$', '') -notin $PresetConfig.excludeModules
         }
     }
 } else {
     $ModuleFiles = foreach ($m in $PresetConfig.modules) {
-        $f = Join-Path $ModuleLibrary ($m -replace '/', '\')
-        $f = "$f.ps1"
-        if (Test-Path $f) { Get-Item $f } else { Write-Warning "Module not found, skipped: $m" }
+        $rel = ($m -replace '/', '\') + '.ps1'
+        $f = Join-Path $ModuleLibrary $rel
+        if (Test-Path $f) { [pscustomobject]@{ FullName = $f; Rel = $rel } } else { Write-Warning "Module not found, skipped: $m" }
     }
 }
 
 # --- Copy modules preserving category subfolders ----------------------------
 foreach ($f in $ModuleFiles) {
-    $rel  = $f.FullName.Substring((Resolve-Path $ModuleLibrary).Path.Length + 1)
+    $rel  = $f.Rel
     $dest = Join-Path $OutputPath "Modules\$rel"
     New-Item -ItemType Directory -Force (Split-Path $dest) | Out-Null
     Copy-Item $f.FullName $dest
@@ -104,6 +120,9 @@ $CollectorConfig = [ordered]@{
     builtBy       = $env:USERNAME
     rawAcquisition = $PresetConfig.rawAcquisition
     eventLogDays   = $PresetConfig.eventLogDays
+    # Outbound TCP reachability probe (8.8.8.8/1.1.1.1/9.9.9.9:53). OFF unless
+    # the preset or -ConnectivityProbe asks for it: the default check sends no packets.
+    connectivityProbe = [bool]($ConnectivityProbe -or ($PresetConfig.PSObject.Properties['connectivityProbe'] -and $PresetConfig.connectivityProbe))
 }
 $CollectorConfig | ConvertTo-Json -Depth 6 | Out-File (Join-Path $OutputPath 'config.json') -Encoding utf8
 
@@ -124,9 +143,9 @@ $bat = @(
 ($bat -join "`r`n") | Out-File (Join-Path $OutputPath 'RunCollector.bat') -Encoding ascii
 
 # --- Integrity manifest of the package itself --------------------------------
-$PackageHashes = Get-ChildItem $OutputPath -Recurse -File | ForEach-Object {
+$PackageHashes = @(Get-RelFiles (Resolve-Path $OutputPath).Path) | ForEach-Object {
     [ordered]@{
-        path   = $_.FullName.Substring((Resolve-Path $OutputPath).Path.Length + 1)
+        path   = $_.Rel
         sha256 = (Get-FileHash $_.FullName -Algorithm SHA256).Hash
     }
 }

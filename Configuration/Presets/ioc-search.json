@@ -1,0 +1,26 @@
+{
+  "schemaVersion": "1.0",
+  "preset": "ioc-search",
+  "description": "IOC sweep (~5-10 min). Hash-bearing binaries (processes, DLLs, drivers, persistence) plus network, DNS and browser state - everything the analyzer's IP/domain/hash IOC matcher reads. No raw disk acquisition.",
+  "connectivityProbe": false,
+  "modules": [
+    "System/system_info",
+    "Execution/processes", "Execution/loaded_dlls",
+    "Network/network_connections", "Network/dns_cache", "Network/arp_entries", "Network/network_advanced",
+    "Persistence/registry_runkeys", "Persistence/scheduled_tasks", "Persistence/services",
+    "Persistence/wmi_persistence", "Persistence/startup_folder", "Persistence/scheduled_task_xml",
+    "System/drivers",
+    "Application/browser_history",
+    "Network/remote_access_tools"
+  ],
+  "rawAcquisition": {
+    "memory": false,
+    "packetCapture": false,
+    "evtxChannels": [],
+    "registryHives": false,
+    "mft": false,
+    "prefetchFiles": false,
+    "srum": false
+  },
+  "eventLogDays": 0
+}
